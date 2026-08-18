@@ -54,7 +54,7 @@ export function normalizeNodeInput(raw: string): string[] {
   return out;
 }
 
-function tryDecodeBase64(s: string): string | null {
+export function tryDecodeBase64(s: string): string | null {
   if (!/^[A-Za-z0-9+/_=-]+$/.test(s)) return null;
   try {
     const normalized = s.replace(/-/g, "+").replace(/_/g, "/");

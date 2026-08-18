@@ -1,6 +1,7 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches, subPulls, users } from "@/db/schema";
+import { buildClashYaml } from "@/lib/clash";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
 import {
   buildRawContent,
@@ -123,6 +124,30 @@ export async function GET(
   }
 
   const url = new URL(req.url);
+  const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
+  // 格式协商:?target= 显式指定;否则按 User-Agent:Clash 系 → YAML,
+  // 其余(v2rayN/v2rayNG/Shadowrocket 等)→ base64 节点列表
+  const target = url.searchParams.get("target");
+  const wantsClash =
+    target === "clash" ||
+    (target !== "v2ray" &&
+      /clash|mihomo|flclash|stash|clashverge|clash-verge|clashmeta/.test(ua));
+
+  if (wantsClash) {
+    const yaml = buildClashYaml(nodes, batch.batchDate);
+    if (yaml) {
+      return new Response(yaml, {
+        headers: {
+          "Content-Type": "text/yaml; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Subscription-Userinfo": userinfo,
+          "Profile-Update-Interval": "24",
+        },
+      });
+    }
+    // 全都转不了 → 退回 base64 列表
+  }
+
   if (url.searchParams.get("raw") === "1") {
     const content = buildRawContent(nodes, batch.batchDate);
     const filename = `arkadia-${batch.batchDate}.txt`;
