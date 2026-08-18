@@ -42,6 +42,37 @@ describe("parseSocksLine", () => {
     expect(e.residential).toBe(true);
   });
 
+  it("宽松变体:缺前缀/缺入库/裸地址可解析", () => {
+    // 缺 socks5:// 前缀
+    const noScheme = parseSocksLine(
+      "1.2.3.4:1080 [家宽] 日本 [日本 东京 东京] 入库:2026-08-18 15:00:00",
+    )!;
+    expect(noScheme.host).toBe("1.2.3.4");
+    expect(noScheme.residential).toBe(true);
+    expect(noScheme.country).toBe("日本");
+    // 缺入库尾巴
+    const noTime = parseSocksLine(
+      "socks5://5.6.7.8:1080 [原生IP] 美国 [美国 洛杉矶]",
+    )!;
+    expect(noTime.nativeIp).toBe(true);
+    expect(noTime.region).toBe("美国 洛杉矶");
+    // 裸地址(无任何元数据)也能解析,但无标签不入池
+    const bare = parseSocksLine("socks5://9.9.9.9:1080")!;
+    expect(bare.host).toBe("9.9.9.9");
+    expect(isEligible(bare)).toBe(false);
+    // 全角冒号入库
+    const fw = parseSocksLine(
+      "socks5://2.2.2.2:1080 [家宽] 韩国 [韩国 首尔] 入库:2026-08-18",
+    )!;
+    expect(fw.country).toBe("韩国");
+  });
+
+  it("非 SOCKS5 协议不认", () => {
+    expect(parseSocksLine("http://1.2.3.4:8080 [家宽] X [X]")).toBeNull();
+    expect(parseSocksLine("socks4://1.2.3.4:1080 [家宽] X [X]")).toBeNull();
+    expect(parseSocksLine("https://example.com:443 path")).toBeNull();
+  });
+
   it("脏行/空行返回 null,不抛错", () => {
     expect(parseSocksLine("hello world")).toBeNull();
     expect(parseSocksLine("socks5://not-a-proxy")).toBeNull();

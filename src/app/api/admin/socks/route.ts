@@ -28,6 +28,15 @@ export async function GET() {
     .orderBy(asc(socksPool.latencyMs))
     .limit(100);
 
+  const [activeBatch] = await db
+    .select({ nodes: nodeBatches.nodes })
+    .from(nodeBatches)
+    .where(eq(nodeBatches.isActive, true))
+    .limit(1);
+  const mergedToday = ((activeBatch?.nodes as string[]) ?? []).filter((n) =>
+    n.toLowerCase().startsWith("socks5://"),
+  ).length;
+
   const allRows = await db.select({ status: socksPool.status }).from(socksPool);
   const summary = {
     total: allRows.length,
@@ -38,6 +47,7 @@ export async function GET() {
 
   return Response.json({
     run: getSocksRunState(),
+    mergedToday,
     summary,
     top: okRows.map((r) => ({
       host: r.host,
@@ -170,6 +180,7 @@ export async function POST(req: Request) {
   // ===== 挑选最优并入今日批次 =====
   if (action === "merge") {
     const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const force = body.force === true;
 
     const okRows = await db
       .select()
@@ -185,12 +196,45 @@ export async function POST(req: Request) {
       );
     }
 
+    // 当前激活批次中已有的 SOCKS host:port(防手滑重复并入)
+    const [activeBatch] = await db
+      .select()
+      .from(nodeBatches)
+      .where(eq(nodeBatches.isActive, true))
+      .orderBy(desc(nodeBatches.createdAt))
+      .limit(1);
+    const existingSet = new Set<string>(
+      ((activeBatch?.nodes as string[]) ?? [])
+        .filter((n) => n.toLowerCase().startsWith("socks5://"))
+        .map((n) => {
+          try {
+            const u = new URL(n);
+            return `${u.hostname}:${u.port}`;
+          } catch {
+            return n;
+          }
+        }),
+    );
+    if (existingSet.size > 0 && !force) {
+      return Response.json(
+        {
+          error: `今日批次已包含 ${existingSet.size} 个 SOCKS5 福利节点。确认要再追加吗?(重复的会自动跳过)`,
+          needForce: true,
+        },
+        { status: 422 },
+      );
+    }
+
     const best = pickBest(
       okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
-      count,
-    );
+      count + existingSet.size, // 多选一些,去重后仍够数
+    ).filter((b) => !existingSet.has(`${b.entry.host}:${b.entry.port}`))
+     .slice(0, count);
     if (best.length === 0) {
-      return Response.json({ error: "选取失败" }, { status: 422 });
+      return Response.json(
+        { error: "候选已全部在今日批次中,无需重复并入" },
+        { status: 422 },
+      );
     }
 
     // 当前激活批次(没有则从空开始)

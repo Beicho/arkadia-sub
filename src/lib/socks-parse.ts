@@ -18,8 +18,14 @@ export type SocksEntry = {
   riskScore: number | null;
 };
 
-const LINE_RE =
-  /^socks5:\/\/(?:([^@\s]+):([^@\s]+)@)?([a-zA-Z0-9.\-]+):(\d{1,5})\s+(.+)$/;
+/**
+ * 宽松行匹配:可缺 socks5:// 前缀、可缺尾部元数据;
+ * authority = [user:pass@]host:port,后跟可选元数据。
+ * http:// / https:// / socks4:// 等其他 scheme 明确不认。
+ */
+const AUTH_RE =
+  /^(?:socks5h?:\/\/)?(?:([^@\s:/]+):([^@\s:/]+)@)?([a-zA-Z0-9.\-]+):(\d{1,5})(?:\s+(.*))?$/;
+const OTHER_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 /** 已知云服务商关键词(从地区串里识别,命中则进节点名) */
 const PROVIDER_KEYWORDS = [
@@ -48,36 +54,39 @@ const PROVIDER_KEYWORDS = [
 export function parseSocksLine(raw: string): SocksEntry | null {
   const line = raw.trim();
   if (!line) return null;
-  const m = LINE_RE.exec(line);
+  // 其他协议(http/socks4 等)明确不认,避免误测
+  if (OTHER_SCHEME_RE.test(line) && !/^socks5h?:\/\//i.test(line)) return null;
+
+  const m = AUTH_RE.exec(line);
   if (!m) return null;
   const [, , , host, portStr, rest] = m;
   const port = Number(portStr);
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const meta = rest ?? "";
 
-  // 1. 地区 = 「入库:」前的最后一个 [..] 组(先取走,避免被当成标签)
-  let country: string | null = null;
-  let region: string | null = null;
-  let rest2 = rest;
-  const rm = /\[([^\[\]]+)\]\s*入库:/.exec(rest);
-  if (rm) {
-    region = rm[1].trim() || null;
-    rest2 = rest.slice(0, rm.index) + rest.slice(rm.index + rm[0].length);
-  }
-
-  // 2. 标签 = 剩余部分开头的连续 [..] 组
+  // 括号组分类:含空格 → 地区(取最后一个);无空格 → 标签
   const tags: string[] = [];
-  let tagMatch: RegExpExecArray | null;
-  const tagRe = /^\s*\[([^\[\]]+)\]/;
-  while ((tagMatch = tagRe.exec(rest2)) !== null) {
-    tags.push(tagMatch[1]);
-    rest2 = rest2.slice(tagMatch.index + tagMatch[0].length);
+  let region: string | null = null;
+  for (const bm of meta.matchAll(/\[([^\[\]]+)\]/g)) {
+    const val = bm[1].trim();
+    if (!val) continue;
+    if (/\s/.test(val)) {
+      region = val; // 地区组(如 [美国 得克萨斯州 休斯敦])
+    } else {
+      tags.push(val); // 标签组(如 [家宽][高风险84])
+    }
   }
 
-  // 3. 国家 = 去掉标签和地区后的第一个词
-  const cm = /^\s*([^\s\[\]]+)/.exec(rest2);
-  if (cm) country = cm[1];
+  // 国家 = 括号外第一个非「入库」开头的词
+  let country: string | null = null;
+  const noBrackets = meta.replace(/\[[^\[\]]*\]/g, " ");
+  for (const tok of noBrackets.split(/\s+/).filter(Boolean)) {
+    if (tok.startsWith("入库")) continue;
+    country = tok;
+    break;
+  }
 
-  // 4. 风险分
+  // 风险分
   let riskScore: number | null = null;
   for (const tag of tags) {
     const r = /^高风险(\d{1,3})$/.exec(tag);

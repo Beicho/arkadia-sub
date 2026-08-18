@@ -20,6 +20,7 @@ type Top = {
 type Status = {
   run: { running: boolean; total: number; done: number; ok: number; fail: number };
   summary: { total: number; ok: number; fail: number; untested: number };
+  mergedToday?: number;
   top: Top[];
 };
 
@@ -112,12 +113,14 @@ export default function SocksPoolPanel() {
     }
   };
 
-  const doMerge = async () => {
+  const doMerge = async (force = false) => {
     const n = status?.summary.ok ?? 0;
     if (n === 0) return setErr("没有可用代理");
     if (
       !confirm(
-        `把可用代理中质量最高的 30 个并入当前激活批次(同日已拉过的用户刷新不扣额度)。确定?`,
+        force
+          ? `⚠ 二次确认:今日批次已有 SOCKS5,将再追加 30 个(重复自动跳过)。真的要追加吗?`
+          : `把可用代理中质量最高的 30 个并入当前激活批次(同日已拉过的用户刷新不扣额度)。确定?`,
       )
     )
       return;
@@ -127,11 +130,22 @@ export default function SocksPoolPanel() {
     try {
       const r = await apiPost<{ message: string; added: string[] }>(
         "/api/admin/socks",
-        { action: "merge", count: 30 },
+        { action: "merge", count: 30, force },
       );
       setMsg(`${r.message}\n并入节点:\n${r.added.join("\n")}`);
+      await refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "合并失败");
+      const msg = e instanceof Error ? e.message : "合并失败";
+      if (msg.includes("确认要再追加")) {
+        // 服务端要求二次确认:再点一次确定才真正 force
+        if (confirm(`${msg}\n\n(二次确认,防止手滑重复并入)`)) {
+          setBusy(null);
+          return void doMerge(true);
+        }
+        setErr("已取消(今日批次已有 SOCKS5,未重复并入)");
+      } else {
+        setErr(msg);
+      }
     } finally {
       setBusy(null);
     }
@@ -214,6 +228,7 @@ export default function SocksPoolPanel() {
               <StatusChip tone="green">可用 {status.summary.ok}</StatusChip>
               <StatusChip tone="red">失败 {status.summary.fail}</StatusChip>
               <StatusChip tone="amber">未测 {status.summary.untested}</StatusChip>
+              <StatusChip tone="accent">已并入今日 {status.mergedToday ?? 0}</StatusChip>
             </div>
           ) : null}
         </div>
