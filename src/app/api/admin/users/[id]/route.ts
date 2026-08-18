@@ -9,9 +9,18 @@ import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  action: z.enum(["ban", "unban", "add_days", "reset_token", "activate", "deactivate"]),
+  action: z.enum([
+    "ban",
+    "unban",
+    "add_days",
+    "add_credits",
+    "reset_token",
+    "activate",
+    "deactivate",
+  ]),
   reason: z.string().max(300).optional(),
   days: z.number().int().min(-365).max(365).optional(),
+  credits: z.number().int().min(-1000).max(1000).optional(),
 });
 
 export async function PATCH(
@@ -72,6 +81,18 @@ export async function PATCH(
         .set({ paidUntil: new Date(base.getTime() + days * 86_400_000) })
         .where(eq(users.id, id));
       await audit(admin.id, "user_add_days", user.username, { days });
+      break;
+    }
+    case "add_credits": {
+      const c = parsed.data.credits ?? 0;
+      if (c === 0) {
+        return Response.json({ error: "额度不能为 0" }, { status: 400 });
+      }
+      await db
+        .update(users)
+        .set({ updateCredits: Math.max(0, user.updateCredits + c) })
+        .where(eq(users.id, id));
+      await audit(admin.id, "user_add_credits", user.username, { credits: c });
       break;
     }
     case "reset_token": {

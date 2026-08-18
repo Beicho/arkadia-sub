@@ -9,21 +9,21 @@ import { apiPost } from "@/components/api";
 export type SettingsValues = {
   activation_price: number;
   activation_days: number;
-  price_per_day: number;
+  price_per_update: number;
   trust_level_min: number;
   expected_node_count: number;
-  max_days_per_order: number;
+  max_credits_per_order: number;
   admin_usernames: string[];
   auto_ban_fp_threshold: number;
 };
 
 const NUM_FIELDS: { key: keyof SettingsValues; label: string; hint: string }[] = [
   { key: "activation_price", label: "注册码价格(LDC)", hint: "游客购买注册码的价格" },
-  { key: "activation_days", label: "注册码赠送天数", hint: "兑换后赠送的订阅天数" },
-  { key: "price_per_day", label: "续费单价(LDC/天)", hint: "赠期后的按天价格" },
+  { key: "activation_days", label: "注册码赠送免费更新天数", hint: "兑换后 N 天内更新免费" },
+  { key: "price_per_update", label: "更新额度单价(LDC/次)", hint: "免费期后每次更新的价格" },
   { key: "trust_level_min", label: "最低信任等级", hint: "0-4;低于该值不能登录购买" },
   { key: "expected_node_count", label: "期望节点数/批", hint: "上传批次数量校验" },
-  { key: "max_days_per_order", label: "单笔最大天数", hint: "续费一次最多买多少天" },
+  { key: "max_credits_per_order", label: "单笔最大额度数", hint: "一次最多买多少个更新额度" },
   { key: "auto_ban_fp_threshold", label: "指纹自动封禁阈值", hint: "同设备账号数达到该值自动封禁" },
 ];
 

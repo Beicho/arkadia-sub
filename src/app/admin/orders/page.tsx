@@ -40,7 +40,7 @@ export default async function AdminOrdersPage({
       id: orders.id,
       outTradeNo: orders.outTradeNo,
       orderType: orders.orderType,
-      days: orders.days,
+      quantity: orders.quantity,
       amount: orders.amount,
       status: orders.status,
       createdAt: orders.createdAt,
@@ -87,7 +87,7 @@ export default async function AdminOrdersPage({
             <span key="no" className="font-mono text-xs">
               {o.outTradeNo}
             </span>,
-            TYPE_TEXT[o.orderType] ?? o.orderType,
+            `${TYPE_TEXT[o.orderType] ?? o.orderType}${o.orderType === "renewal" ? ` ×${o.quantity}` : ""}`,
             o.username ?? "(游客)",
             `${Number(o.amount).toFixed(0)} LDC`,
             <Badge key="st" variant={STATUS_BADGE[o.status] ?? "secondary"}>

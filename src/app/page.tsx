@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { nodeBatches } from "@/db/schema";
 import { Badge, Banner } from "@/components/kumo";
 
 import { GlobeIcon, ShieldCheckIcon, DatabaseIcon, WarningIcon } from "@phosphor-icons/react/dist/ssr";
@@ -13,7 +16,15 @@ const isDevLogin =
   process.env.NODE_ENV !== "production" && process.env.DEV_FAKE_LOGIN === "1";
 
 export default async function Home() {
-  const [s, user] = await Promise.all([getSettings(), getCurrentUser()]);
+  const [s, user, activeBatch] = await Promise.all([
+    getSettings(),
+    getCurrentUser(),
+    db
+      .select({ batchDate: nodeBatches.batchDate })
+      .from(nodeBatches)
+      .where(eq(nodeBatches.isActive, true))
+      .limit(1),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 md:py-16">
@@ -54,24 +65,26 @@ export default async function Home() {
           price={s.activation_price}
           days={s.activation_days}
           stock={s.code_stock}
+          priceHint={s.price_per_update}
+          lastUpdate={activeBatch[0]?.batchDate ?? null}
         />
         <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
           <div className="flex items-center gap-2 font-semibold">
             <DatabaseIcon />
-            按日续费
+            更新额度
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold">{s.price_per_day}</span>
-            <span className="text-sm text-neutral-500">LDC / 天</span>
+            <span className="text-3xl font-bold">{s.price_per_update}</span>
+            <span className="text-sm text-neutral-500">LDC / 次更新</span>
           </div>
           <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
-            <li>· 注册码赠送的天数用完后按天续费</li>
-            <li>· 一次可购买 1 ~ {s.max_days_per_order} 天</li>
-            <li>· 付款立即生效,叠加到现有到期时间</li>
+            <li>· 免费期结束后,每次更新(新批次)消耗 1 额度</li>
+            <li>· 额度不随时间过期,不更新就不用买</li>
+            <li>· 一次可购买 1 ~ {s.max_credits_per_order} 个额度</li>
             <li>· 节点名称带日期(Arkadia-日期-序号),一眼识别新鲜度</li>
           </ul>
           <div className="text-sm text-neutral-500">
-            续费请先 <a className="underline" href="/api/auth/login">登录</a> 后进入
+            购买请先 <a className="underline" href="/api/auth/login">登录</a> 后进入
             <a className="underline" href="/dashboard"> 面板</a>。
           </div>
         </div>

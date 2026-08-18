@@ -5,13 +5,13 @@ import { settings } from "@/db/schema";
 export const DEFAULT_SETTINGS = {
   activation_price: 100,
   activation_days: 5,
-  price_per_day: 10,
+  price_per_update: 3,
   trust_level_min: 1,
   expected_node_count: 30,
-  max_days_per_order: 30,
+  max_credits_per_order: 30,
   admin_usernames: ["devadmin"],
   auto_ban_fp_threshold: 3,
-  code_stock: 0,
+  code_stock: 100,
 };
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;
@@ -20,6 +20,17 @@ export type SettingsMap = {
 };
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as SettingsKey[];
+
+/** 幂等播种默认设置行(on conflict do nothing),保证 consumeStock 等 UPDATE 有行可改 */
+export async function ensureDefaultsSeeded(tx?: DbTx): Promise<void> {
+  const runner = tx ?? db;
+  for (const key of SETTING_KEYS) {
+    await runner
+      .insert(settings)
+      .values({ key, value: DEFAULT_SETTINGS[key] as never })
+      .onConflictDoNothing();
+  }
+}
 
 export async function getSettings(): Promise<SettingsMap> {
   const map: Record<string, unknown> = { ...DEFAULT_SETTINGS };

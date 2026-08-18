@@ -2,13 +2,15 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, redeemCodes, users } from "@/db/schema";
 import { generateOutTradeNo, generateRedeemCode } from "@/lib/redeem-code";
-import { consumeStock, getSettings } from "@/lib/settings";
-
-export const DAY_MS = 86_400_000;
+import {
+  consumeStock,
+  ensureDefaultsSeeded,
+  getSettings,
+} from "@/lib/settings";
 
 /**
  * 游客购买注册码(库存制):
- * 1. 原子扣库存(防超卖)
+ * 1. 播种设置行 → 原子扣库存(防超卖)
  * 2. 生成注册码(未 reveal)+ pending 订单
  */
 export async function createActivationOrder(
@@ -19,6 +21,8 @@ export async function createActivationOrder(
 > {
   const s = await getSettings();
   return db.transaction(async (tx) => {
+    await ensureDefaultsSeeded(tx);
+
     const ok = await consumeStock(tx);
     if (!ok) return { ok: false as const, error: "暂无库存,请等待补货" };
 
@@ -34,7 +38,7 @@ export async function createActivationOrder(
       outTradeNo,
       orderType: "activation",
       userId: null,
-      days: s.activation_days,
+      quantity: s.activation_days,
       amount: s.activation_price.toFixed(2),
       codeId: codeRow.id,
       status: "pending",
@@ -51,23 +55,23 @@ export async function createActivationOrder(
 }
 
 /**
- * 登录用户续费:天数 1..max_days_per_order,金额服务端计算。
+ * 登录用户购买更新额度:1..max_credits_per_order 个,金额服务端计算。
  * 要求已激活 + 已勾选不退款(一次记录终身)。
  */
-export async function createRenewalOrder(
+export async function createCreditOrder(
   userId: number,
-  days: number,
+  credits: number,
   acceptNoRefund: boolean,
   ip: string,
 ): Promise<
-  | { ok: true; outTradeNo: string; amount: number }
+  | { ok: true; outTradeNo: string; amount: number; credits: number }
   | { ok: false; error: string; needNoRefund?: boolean }
 > {
   const s = await getSettings();
-  if (!Number.isInteger(days) || days < 1 || days > s.max_days_per_order) {
+  if (!Number.isInteger(credits) || credits < 1 || credits > s.max_credits_per_order) {
     return {
       ok: false,
-      error: `天数需在 1 ~ ${s.max_days_per_order} 之间`,
+      error: `额度数需在 1 ~ ${s.max_credits_per_order} 之间`,
     };
   }
 
@@ -95,17 +99,17 @@ export async function createRenewalOrder(
       .where(eq(users.id, userId));
   }
 
-  const amount = days * s.price_per_day;
+  const amount = credits * s.price_per_update;
   const outTradeNo = generateOutTradeNo();
   await db.insert(orders).values({
     outTradeNo,
     orderType: "renewal",
     userId,
-    days,
+    quantity: credits,
     amount: amount.toFixed(2),
     status: "pending",
     buyerIp: ip,
   });
 
-  return { ok: true, outTradeNo, amount };
+  return { ok: true, outTradeNo, amount, credits };
 }

@@ -7,15 +7,15 @@ import { Switch } from "@cloudflare/kumo/components/switch";
 import { apiPost } from "@/components/api";
 
 export default function RenewCard({
-  pricePerDay,
-  maxDays,
+  pricePerUpdate,
+  maxCredits,
   noRefundAccepted,
 }: {
-  pricePerDay: number;
-  maxDays: number;
+  pricePerUpdate: number;
+  maxCredits: number;
   noRefundAccepted: boolean;
 }) {
-  const [days, setDays] = useState(1);
+  const [credits, setCredits] = useState(1);
   const [accept, setAccept] = useState(noRefundAccepted);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export default function RenewCard({
     setLoading(true);
     try {
       const res = await apiPost<{ payUrl: string }>("/api/orders", {
-        days,
+        credits,
         acceptNoRefund: accept,
       });
       location.href = res.payUrl;
@@ -35,25 +35,31 @@ export default function RenewCard({
     }
   };
 
-  const amount = days * pricePerDay;
+  const amount = credits * pricePerUpdate;
 
   return (
     <div className="space-y-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-      <div className="font-semibold">续费订阅</div>
+      <div className="font-semibold">购买更新额度</div>
+      <p className="text-sm text-neutral-500">
+        {pricePerUpdate} LDC = 1 次更新额度。站长上传新批次后,刷新订阅即可拿到新节点(扣 1 额度);
+        额度不随时间过期,重复拉同一批不扣。
+      </p>
       <div className="grid grid-cols-2 items-end gap-3">
         <Input
-          label="天数"
+          label="额度数"
           type="number"
           min={1}
-          max={maxDays}
-          value={String(days)}
+          max={maxCredits}
+          value={String(credits)}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
             const v = Number(e.target.value);
-            setDays(Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxDays) : 1);
+            setCredits(
+              Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxCredits) : 1,
+            );
           }}
         />
         <div className="pb-2 text-sm text-neutral-500">
-          单价 {pricePerDay} LDC/天
+          单价 {pricePerUpdate} LDC/次
         </div>
       </div>
       <div className="text-lg font-semibold">

@@ -26,7 +26,11 @@ export const users = pgTable("users", {
   banReason: text("ban_reason"),
   activated: boolean("activated").notNull().default(false),
   subToken: text("sub_token").notNull().unique(),
+  // 免费更新期截止(注册码赠送)
   paidUntil: timestamp("paid_until", { withTimezone: true }),
+  // 更新额度:3 LDC/个,拉新批次扣 1,不随时间过期
+  updateCredits: integer("update_credits").notNull().default(0),
+  lastPulledBatchId: integer("last_pulled_batch_id"),
   noRefundAcceptedAt: timestamp("no_refund_accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -64,7 +68,8 @@ export const orders = pgTable(
     // activation | renewal
     orderType: text("order_type").notNull(),
     userId: integer("user_id"),
-    days: integer("days").notNull(),
+    // activation:赠送免费天数;renewal:购买更新额度数
+    quantity: integer("quantity").notNull(),
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     codeId: integer("code_id"),
     // pending | paid | expired

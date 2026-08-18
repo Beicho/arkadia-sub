@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, subPulls, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
@@ -40,7 +40,10 @@ export default async function AdminOverview() {
       .select({ c: count() })
       .from(users)
       .where(
-        and(eq(users.activated, true), gte(users.paidUntil, new Date())),
+        and(
+          eq(users.activated, true),
+          or(gte(users.paidUntil, new Date()), gt(users.updateCredits, 0)),
+        ),
       ),
     db
       .select({ c: count() })
@@ -76,7 +79,7 @@ export default async function AdminOverview() {
             <span key="no" className="font-mono text-xs">
               {o.outTradeNo}
             </span>,
-            o.orderType === "activation" ? "注册码" : `续费${o.days}天`,
+            o.orderType === "activation" ? "注册码" : `额度×${o.quantity}`,
             `${Number(o.amount).toFixed(0)} LDC`,
             <Badge
               key="st"

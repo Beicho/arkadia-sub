@@ -9,6 +9,7 @@ type Action =
   | "ban"
   | "unban"
   | "add_days"
+  | "add_credits"
   | "reset_token"
   | "activate"
   | "deactivate";
@@ -25,7 +26,9 @@ export default function UserActions({
   const router = useRouter();
   const [loading, setLoading] = useState<Action | null>(null);
   const [showDays, setShowDays] = useState(false);
+  const [showCredits, setShowCredits] = useState(false);
   const [days, setDays] = useState("1");
+  const [credits, setCredits] = useState("1");
   const [reason, setReason] = useState("");
 
   const run = async (action: Action, extra?: Record<string, unknown>) => {
@@ -81,7 +84,7 @@ export default function UserActions({
         loading={loading === "add_days"}
         onClick={() => setShowDays((v) => !v)}
       >
-        加/减天数
+        加/减免费天
       </Button>
       {showDays ? (
         <span className="flex items-center gap-1">
@@ -95,6 +98,31 @@ export default function UserActions({
             variant="secondary"
             size="xs"
             onClick={() => run("add_days", { days: Number(days) })}
+          >
+            确认
+          </Button>
+        </span>
+      ) : null}
+      <Button
+        variant="secondary"
+        size="xs"
+        loading={loading === "add_credits"}
+        onClick={() => setShowCredits((v) => !v)}
+      >
+        加/减额度
+      </Button>
+      {showCredits ? (
+        <span className="flex items-center gap-1">
+          <input
+            className="w-16 rounded border border-neutral-300 bg-transparent px-2 py-1 text-xs dark:border-neutral-600"
+            type="number"
+            value={credits}
+            onChange={(e) => setCredits(e.target.value)}
+          />
+          <Button
+            variant="secondary"
+            size="xs"
+            onClick={() => run("add_credits", { credits: Number(credits) })}
           >
             确认
           </Button>

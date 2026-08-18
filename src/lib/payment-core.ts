@@ -49,13 +49,10 @@ export async function markOrderPaid(
         .for("update")
         .limit(1);
       if (u) {
-        const base =
-          u.paidUntil && u.paidUntil.getTime() > Date.now() ? u.paidUntil : new Date();
+        // 续费 = 增加更新额度(不随时间过期)
         await tx
           .update(users)
-          .set({
-            paidUntil: new Date(base.getTime() + order.days * 86_400_000),
-          })
+          .set({ updateCredits: u.updateCredits + order.quantity })
           .where(eq(users.id, u.id));
       }
     }
@@ -101,7 +98,7 @@ export async function expireOrder(orderId: number): Promise<void> {
   });
 }
 
-/** 兑换注册码:激活账号并送 activation_days */
+/** 兑换注册码:激活账号并送 activation_days 天免费更新期 */
 export async function redeemCodeForUser(
   userId: number,
   codeStr: string,

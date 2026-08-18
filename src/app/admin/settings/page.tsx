@@ -13,10 +13,10 @@ export default async function AdminSettingsPage() {
         initial={{
           activation_price: s.activation_price,
           activation_days: s.activation_days,
-          price_per_day: s.price_per_day,
+          price_per_update: s.price_per_update,
           trust_level_min: s.trust_level_min,
           expected_node_count: s.expected_node_count,
-          max_days_per_order: s.max_days_per_order,
+          max_credits_per_order: s.max_credits_per_order,
           admin_usernames: s.admin_usernames,
           auto_ban_fp_threshold: s.auto_ban_fp_threshold,
         }}

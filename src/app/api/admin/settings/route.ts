@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   activation_price: z.number().int().min(1).max(100_000).optional(),
   activation_days: z.number().int().min(1).max(365).optional(),
-  price_per_day: z.number().int().min(1).max(100_000).optional(),
+  price_per_update: z.number().int().min(1).max(100_000).optional(),
   trust_level_min: z.number().int().min(0).max(4).optional(),
   expected_node_count: z.number().int().min(1).max(500).optional(),
-  max_days_per_order: z.number().int().min(1).max(365).optional(),
+  max_credits_per_order: z.number().int().min(1).max(365).optional(),
   admin_usernames: z
     .array(z.string().trim().min(1).max(60))
     .min(1)

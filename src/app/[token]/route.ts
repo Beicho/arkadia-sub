@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches, subPulls, users } from "@/db/schema";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
@@ -51,9 +51,13 @@ export async function GET(
   if (!user.activated) {
     return textResponse("请先兑换注册码激活账号后拉取订阅(arkadia.work)", 403);
   }
-  if (!user.paidUntil || user.paidUntil.getTime() <= Date.now()) {
+
+  const freeUntil =
+    user.paidUntil && user.paidUntil.getTime() > Date.now() ? user.paidUntil : null;
+
+  if (!freeUntil && user.updateCredits <= 0) {
     return textResponse(
-      "订阅已过期:请到 arkadia.work 登录后续费(10 LDC/天)",
+      "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
       402,
     );
   }
@@ -69,13 +73,42 @@ export async function GET(
   }
 
   const nodes = batch.nodes as string[];
-  const remainingSec = Math.max(
-    0,
-    Math.floor((user.paidUntil.getTime() - Date.now()) / 1000),
-  );
   const userinfo = `upload=0; download=0; total=0; expire=${Math.floor(
-    user.paidUntil.getTime() / 1000,
+    (freeUntil ?? new Date(Date.now() + 30 * 86_400_000)).getTime() / 1000,
   )}`;
+
+  // 额度模式:拉到新批次才扣 1 额度;重复拉同一批不扣
+  if (!freeUntil) {
+    if (batch.id !== user.lastPulledBatchId) {
+      const consumed = await db
+        .update(users)
+        .set({
+          updateCredits: sql`${users.updateCredits} - 1`,
+          lastPulledBatchId: batch.id,
+        })
+        .where(
+          and(
+            eq(users.id, user.id),
+            gt(users.updateCredits, 0),
+          ),
+        )
+        .returning({ id: users.id });
+      if (consumed.length === 0) {
+        return textResponse(
+          "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
+          402,
+        );
+      }
+    }
+  } else {
+    // 免费期内:同步 lastPulledBatchId,避免期后转额度模式重复扣
+    if (batch.id !== user.lastPulledBatchId) {
+      await db
+        .update(users)
+        .set({ lastPulledBatchId: batch.id })
+        .where(eq(users.id, user.id));
+    }
+  }
 
   // 风控统计
   try {
@@ -104,7 +137,6 @@ export async function GET(
   }
 
   const payload = buildSubscriptionPayload(nodes, batch.batchDate);
-  void remainingSec;
   return new Response(payload, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",

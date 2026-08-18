@@ -21,14 +21,14 @@ export default function TosPage() {
         <section>
           <h2 className="mb-2 font-semibold text-neutral-900 dark:text-neutral-100">1. 服务内容</h2>
           <p>
-            Arkadia 提供按日订阅的代理节点列表。站长每天测试并更新节点批次;已付费用户通过专属订阅链接获取当天节点。
+            Arkadia 提供订阅制的代理节点列表。站长不定期(通常每天)测试并更新节点批次;已付费用户通过专属订阅链接获取最新批次节点。
             节点名称形如 Arkadia-20260818-01,标明批次日期与序号。
           </p>
         </section>
         <section>
           <h2 className="mb-2 font-semibold text-neutral-900 dark:text-neutral-100">2. 计费</h2>
           <p>
-            注册码价格以首页展示为准,兑换后赠送对应天数;赠期结束后按天计费,价格以购买时页面展示为准。
+            注册码价格以首页展示为准,兑换后赠送对应天数的免费更新期;免费期结束后按"更新额度"计费:每次获取新批次消耗 1 个额度,价格以购买时页面展示为准。额度不随时间过期,站长未更新期间无需购买。
             一次可购买多天,费用支付后立即叠加到现有到期时间。
           </p>
         </section>

@@ -10,10 +10,14 @@ export default function BuyActivationCard({
   price,
   days,
   stock,
+  priceHint,
+  lastUpdate,
 }: {
   price: number;
   days: number;
   stock: number;
+  priceHint: number;
+  lastUpdate: string | null;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,14 +49,19 @@ export default function BuyActivationCard({
           <Badge variant="success">有货 · 库存 {stock}</Badge>
         )}
       </div>
+      {lastUpdate ? (
+        <div className="text-xs text-neutral-400">站长最近更新:{lastUpdate}</div>
+      ) : (
+        <div className="text-xs text-neutral-400">站长尚未上传节点批次</div>
+      )}
       <div className="flex items-baseline gap-1">
         <span className="text-3xl font-bold">{price}</span>
         <span className="text-sm text-neutral-500">LDC</span>
       </div>
       <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
-        <li>· 兑换后立即获得 {days} 天订阅</li>
-        <li>· 每天更新 {days > 0 ? "" : ""}实测可用节点</li>
-        <li>· 到期后续费 {`10 LDC/天`}(可一次买多天)</li>
+        <li>· 兑换后 {days} 天内更新免费,随便拉</li>
+        <li>· 每天更新实测可用节点</li>
+        <li>· 免费期后 {`${priceHint} LDC/次更新`},额度永不过期</li>
       </ul>
       {error ? (
         <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">

@@ -58,8 +58,8 @@ export default async function PayPage({
     outTradeNo: order.outTradeNo,
     name:
       order.orderType === "activation"
-        ? `Arkadia 注册码(${order.days}天)`
-        : `Arkadia 续费 ${order.days} 天`,
+        ? `Arkadia 注册码(${order.quantity}天免费更新)`
+        : `Arkadia 更新额度 ×${order.quantity}`,
     money: Number(order.amount),
     notifyUrl: `${base}/api/payment/notify`,
     returnUrl:

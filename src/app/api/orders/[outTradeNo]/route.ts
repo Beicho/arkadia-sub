@@ -47,7 +47,7 @@ export async function GET(
     status: order.status,
     orderType: order.orderType,
     amount: order.amount,
-    days: order.days,
+    quantity: order.quantity,
     code,
   });
 }

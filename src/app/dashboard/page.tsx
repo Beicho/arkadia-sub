@@ -1,9 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db/client";
-import { orders } from "@/db/schema";
+import { nodeBatches, orders } from "@/db/schema";
 import { Badge, Banner } from "@/components/kumo";
-
 import { CheckCircleIcon, GlobeIcon, InfoIcon } from "@phosphor-icons/react/dist/ssr";
 import CopyField from "@/components/CopyField";
 import Fingerprint from "@/components/Fingerprint";
@@ -43,19 +42,27 @@ export default async function DashboardPage({
     await reconcileOrder(orderNo).catch(() => undefined);
   }
 
-  const s = await getSettings();
+  const [s, myOrders, activeBatch] = await Promise.all([
+    getSettings(),
+    db
+      .select()
+      .from(orders)
+      .where(eq(orders.userId, user.id))
+      .orderBy(desc(orders.createdAt))
+      .limit(10),
+    db
+      .select({ batchDate: nodeBatches.batchDate })
+      .from(nodeBatches)
+      .where(eq(nodeBatches.isActive, true))
+      .limit(1),
+  ]);
+
   const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
   const subUrl = appUrl ? `${appUrl}/${user.subToken}` : `/${user.subToken}`;
 
-  const myOrders = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.userId, user.id))
-    .orderBy(desc(orders.createdAt))
-    .limit(10);
-
-  const remaining = daysLeft(user.paidUntil);
-  const active = user.activated && remaining > 0;
+  const freeDays = daysLeft(user.paidUntil);
+  const inFreePeriod = Boolean(user.paidUntil) && freeDays > 0;
+  const canPull = user.activated && (inFreePeriod || user.updateCredits > 0);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10">
@@ -78,24 +85,41 @@ export default async function DashboardPage({
             <Banner
               icon={<InfoIcon weight="fill" />}
               title="未激活"
-              description="先到兑换页用注册码激活,获得赠送天数。"
+              description="先到兑换页用注册码激活,获得免费更新期。"
             />
           ) : (
-            <div className="flex items-center gap-2">
-              {active ? (
-                <>
-                  <CheckCircleIcon className="text-green-600" />
-                  <span className="text-2xl font-bold">{remaining}</span>
-                  <span className="text-sm text-neutral-500">天剩余</span>
-                </>
-              ) : (
-                <Badge variant="error">已过期</Badge>
-              )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                {canPull ? (
+                  <>
+                    <CheckCircleIcon className="text-green-600" />
+                    <span className="font-semibold">可更新</span>
+                  </>
+                ) : (
+                  <Badge variant="error">无可用更新</Badge>
+                )}
+              </div>
+              <div className="text-sm text-neutral-600 dark:text-neutral-300">
+                {inFreePeriod ? (
+                  <>
+                    免费更新期:剩余 <b>{freeDays}</b> 天({formatDate(user.paidUntil)}{" "}
+                    到期)
+                  </>
+                ) : (
+                  "免费更新期已结束"
+                )}
+              </div>
+              <div className="text-sm text-neutral-600 dark:text-neutral-300">
+                更新额度:<b>{user.updateCredits}</b> 次
+                <span className="text-neutral-400">(拉新批次扣 1,不随时间过期)</span>
+              </div>
+              {activeBatch[0] ? (
+                <div className="text-xs text-neutral-400">
+                  站长最近更新:{activeBatch[0].batchDate}
+                </div>
+              ) : null}
             </div>
           )}
-          <div className="mt-2 text-sm text-neutral-500">
-            {user.paidUntil ? `到期:${formatDate(user.paidUntil)}` : "尚未开始订阅"}
-          </div>
         </div>
 
         <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
@@ -121,8 +145,8 @@ export default async function DashboardPage({
       {user.activated ? (
         <section className="mb-6">
           <RenewCard
-            pricePerDay={s.price_per_day}
-            maxDays={s.max_days_per_order}
+            pricePerUpdate={s.price_per_update}
+            maxCredits={s.max_credits_per_order}
             noRefundAccepted={Boolean(user.noRefundAcceptedAt)}
           />
         </section>
@@ -148,7 +172,7 @@ export default async function DashboardPage({
                 <div>
                   <span className="font-mono text-xs">{o.outTradeNo}</span>
                   <span className="ml-2 text-neutral-400">
-                    {o.orderType === "renewal" ? `续费 ${o.days} 天` : "注册码"}
+                    {o.orderType === "renewal" ? `更新额度 ×${o.quantity}` : "注册码"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

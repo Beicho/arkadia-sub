@@ -18,7 +18,7 @@ export default async function AdminUsersPage() {
         <p className="text-sm text-neutral-500">还没有用户登录过。</p>
       ) : (
         <AdminTable
-          head={["用户", "信任级", "角色", "状态", "激活", "到期", "最近登录", "操作"]}
+          head={["用户", "信任级", "角色", "状态", "激活", "免费期至", "额度", "最近登录", "操作"]}
           rows={rows.map((u) => [
             <span key="u" className="flex items-center gap-1">
               {u.avatarUrl ? (
@@ -44,6 +44,7 @@ export default async function AdminUsersPage() {
             ),
             u.activated ? "是" : "否",
             u.paidUntil ? formatDate(u.paidUntil) : "—",
+            u.updateCredits,
             u.lastLoginAt ? formatDate(u.lastLoginAt) : "—",
             <UserActions
               key="op"
