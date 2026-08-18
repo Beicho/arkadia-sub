@@ -90,7 +90,7 @@ describe("buildClashYaml", () => {
 
   it("首个节点字段使用列表缩进(- name:)", () => {
     const yaml = buildClashYaml([VLESS_REALITY], "2026-08-18")!;
-    expect(yaml).toMatch(/  - name: "Arkadia-20260818-01"\n    type: vless/);
+    expect(yaml).toMatch(/  - name: "Arkadia-20260818-01"\n    type: "vless"/);
   });
 
   it("空列表返回 null", () => {

@@ -81,7 +81,10 @@ function truthyParam(url: URL, ...keys: string[]): boolean {
 function vlessToClash(uri: string, name: string): YamlPairs | null {
   const url = safeUrl(uri);
   if (!url) return null;
-  const uuid = decodeURIComponent(url.username);
+  // 密码/uuid 含 ':' 时,WHATWG URL 会把它拆进 url.password —— 拼回来
+  const uuid = decodeURIComponent(
+    url.password ? `${url.username}:${url.password}` : url.username,
+  );
   if (!uuid || !url.hostname) return null;
 
   const security = (url.searchParams.get("security") ?? "none").toLowerCase();
@@ -128,7 +131,9 @@ function vlessToClash(uri: string, name: string): YamlPairs | null {
 function hysteria2ToClash(uri: string, name: string): YamlPairs | null {
   const url = safeUrl(uri);
   if (!url) return null;
-  const password = decodeURIComponent(url.username);
+  const password = decodeURIComponent(
+    url.password ? `${url.username}:${url.password}` : url.username,
+  );
   if (!password || !url.hostname) return null;
   const sni = url.searchParams.get("sni") ?? url.searchParams.get("peer") ?? "";
 
@@ -248,7 +253,9 @@ function ssToClash(uri: string, name: string): YamlPairs | null {
 function trojanToClash(uri: string, name: string): YamlPairs | null {
   const url = safeUrl(uri);
   if (!url) return null;
-  const password = decodeURIComponent(url.username);
+  const password = decodeURIComponent(
+    url.password ? `${url.username}:${url.password}` : url.username,
+  );
   if (!password || !url.hostname) return null;
   const proxy: YamlPairs = [
     ["name", name],
