@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "无权限" }, { status: 403 });
 
-  let body: { action?: string; text?: string; count?: number };
+  let body: { action?: string; text?: string; count?: number; force?: boolean };
   try {
     body = await req.json();
   } catch {
