@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/kumo";
 import { CopyIcon, CheckIcon } from "@phosphor-icons/react";
 
 export default function CopyField({
@@ -31,9 +32,7 @@ export default function CopyField({
 
   return (
     <div className="w-full">
-      {label ? (
-        <div className="ark-label">{label}</div>
-      ) : null}
+      {label ? <div className="ark-label">{label}</div> : null}
       <div
         className="flex items-center gap-2 rounded-xl p-2 pl-3"
         style={{ background: "var(--ark-bg)", border: "1px solid var(--ark-border-strong)" }}
@@ -44,18 +43,15 @@ export default function CopyField({
         >
           {value}
         </code>
-        <button
-          className="ark-btn ark-btn-ghost ark-btn-sm shrink-0"
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={copied ? CheckIcon : CopyIcon}
           onClick={copy}
           aria-label="复制"
         >
-          {copied ? (
-            <CheckIcon size={14} style={{ color: "var(--ark-green)" }} />
-          ) : (
-            <CopyIcon size={14} />
-          )}
           {copied ? "已复制" : "复制"}
-        </button>
+        </Button>
       </div>
     </div>
   );

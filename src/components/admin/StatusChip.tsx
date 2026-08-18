@@ -1,20 +1,22 @@
-/** 状态小标签(server/client 通用,无依赖) */
+"use client";
+
+import { Badge } from "@/components/kumo";
+
+/** 状态小标签:Kumo Badge 包装,全后台统一语义色 */
+const TONE_VARIANT = {
+  green: "success",
+  red: "error",
+  amber: "warning",
+  accent: "info",
+  neutral: "secondary",
+} as const;
+
 export default function StatusChip({
   tone = "neutral",
   children,
 }: {
-  tone?: "green" | "red" | "amber" | "accent" | "neutral";
+  tone?: keyof typeof TONE_VARIANT;
   children: React.ReactNode;
 }) {
-  const cls =
-    tone === "green"
-      ? "ark-chip ark-chip-green"
-      : tone === "red"
-        ? "ark-chip ark-chip-red"
-        : tone === "amber"
-          ? "ark-chip ark-chip-amber"
-          : tone === "accent"
-            ? "ark-chip ark-chip-accent"
-            : "ark-chip";
-  return <span className={cls}>{children}</span>;
+  return <Badge variant={TONE_VARIANT[tone]}>{children}</Badge>;
 }

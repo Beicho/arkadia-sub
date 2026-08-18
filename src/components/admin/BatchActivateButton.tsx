@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 export default function BatchActivateButton({
@@ -29,12 +30,13 @@ export default function BatchActivateButton({
   };
 
   return (
-    <button
-      className={active ? "ark-btn ark-btn-ghost ark-btn-sm" : "ark-btn ark-btn-primary ark-btn-sm"}
-      disabled={loading}
+    <Button
+      variant={active ? "secondary" : "primary"}
+      size="xs"
+      loading={loading}
       onClick={toggle}
     >
-      {loading ? "…" : active ? "停用" : "激活"}
-    </button>
+      {active ? "停用" : "激活"}
+    </Button>
   );
 }

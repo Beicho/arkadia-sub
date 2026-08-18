@@ -1,3 +1,5 @@
+import { LinkButton } from "@/components/kumo";
+
 export const dynamic = "force-dynamic";
 
 const REASONS: Record<string, { title: string; body: string }> = {
@@ -38,7 +40,7 @@ export default async function DeniedPage({
       <p className="mb-8 text-sm" style={{ color: "var(--ark-muted)" }}>
         {info.body}
       </p>
-      <a href="/" className="ark-btn ark-btn-ghost ark-btn-sm">返回首页</a>
+      <LinkButton href="/" variant="secondary" size="sm">返回首页</LinkButton>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches } from "@/db/schema";
+import { Badge, Button, LinkButton, LayerCard, Banner } from "@/components/kumo";
 import {
   GlobeHemisphereWestIcon,
   LightningIcon,
@@ -37,26 +38,38 @@ export default async function Home() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
       {/* ===== 顶栏 ===== */}
-      <header className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between border-b px-4 py-4 md:-mx-6 md:px-6"
-        style={{ borderColor: "var(--ark-border)", background: "color-mix(in srgb, var(--ark-bg) 82%, transparent)", backdropFilter: "blur(12px)" }}>
+      <header
+        className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between border-b px-4 py-4 md:-mx-6 md:px-6"
+        style={{
+          borderColor: "var(--ark-border)",
+          background: "color-mix(in srgb, var(--ark-bg) 82%, transparent)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
         <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}>
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}
+          >
             <GlobeHemisphereWestIcon size={18} weight="bold" />
           </span>
           <span className="ark-display text-lg font-bold tracking-tight">Arkadia</span>
         </a>
         <nav className="hidden items-center gap-6 text-sm md:flex" style={{ color: "var(--ark-muted)" }}>
-          <a href="#pricing" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>定价</a>
-          <a href="/redeem" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>兑换注册码</a>
-          <a href="/tos" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>服务条款</a>
+          <a href="#pricing" className="no-underline" style={{ color: "inherit" }}>定价</a>
+          <a href="/redeem" className="no-underline" style={{ color: "inherit" }}>兑换注册码</a>
+          <a href="/tos" className="no-underline" style={{ color: "inherit" }}>服务条款</a>
         </nav>
         <div className="flex items-center gap-3">
           {user ? (
-            <a href={user.role === "admin" ? "/admin" : "/dashboard"} className="ark-btn ark-btn-ghost ark-btn-sm">
+            <LinkButton
+              href={user.role === "admin" ? "/admin" : "/dashboard"}
+              variant="secondary"
+              size="sm"
+            >
               {user.username}
               <ArrowRightIcon size={14} />
-            </a>
+            </LinkButton>
           ) : (
             <LoginButton variant="secondary" />
           )}
@@ -65,10 +78,11 @@ export default async function Home() {
 
       {/* ===== Hero ===== */}
       <section className="pb-14 pt-10 text-center md:pb-20 md:pt-16">
-        <span className="ark-chip ark-chip-accent mb-6">
-          <LightningIcon size={13} weight="fill" />
-          LinuxDo 生态 · 每日人工实测
-        </span>
+        <Badge variant="info" className="mb-6">
+          <span className="flex items-center gap-1">
+            <LightningIcon size={13} weight="fill" /> LinuxDo 生态 · 每日人工实测
+          </span>
+        </Badge>
         <h1 className="ark-display mx-auto mb-5 max-w-3xl text-4xl font-extrabold leading-[1.12] md:text-6xl">
           每天一批,
           <span style={{ color: "var(--ark-accent)" }}>实测可用</span>
@@ -76,47 +90,45 @@ export default async function Home() {
         </h1>
         <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed md:text-base" style={{ color: "var(--ark-muted)" }}>
           站长每天测速、筛掉坏节点,把当天最好的 {s.expected_node_count} 个打包成批次。
-          付款激活后用你的专属订阅链接,随时刷出最新一批——节点名自带日期,新鲜度一眼可辨。
+          付款激活后用你的专属订阅链接,随时刷出最新一批——订阅名自带日期,新鲜度一眼可辨。
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <a href="#pricing" className="ark-btn ark-btn-primary">
+          <LinkButton href="#pricing" variant="primary">
             购买注册码 · {s.activation_price} LDC
             <ArrowRightIcon size={15} />
-          </a>
+          </LinkButton>
           {user ? (
-            <a href="/dashboard" className="ark-btn ark-btn-ghost">进入面板</a>
+            <LinkButton href="/dashboard" variant="secondary">进入面板</LinkButton>
           ) : (
-            <a href="/api/auth/login" className="ark-btn ark-btn-ghost">
+            <LinkButton href="/api/auth/login" variant="secondary">
               <ShieldCheckIcon size={15} />
               使用 LinuxDo 登录
-            </a>
+            </LinkButton>
           )}
         </div>
 
         {/* 状态条 */}
         <div className="mx-auto mt-12 flex max-w-2xl flex-wrap items-center justify-center gap-2.5">
-          <span className="ark-chip">
+          <Badge variant="secondary">
             <DatabaseIcon size={13} />
             库存
             <b className="ark-mono" style={{ color: s.code_stock > 0 ? "var(--ark-green)" : "var(--ark-red)" }}>
               {s.code_stock}
             </b>
-          </span>
-          <span className="ark-chip">
+          </Badge>
+          <Badge variant="secondary">
             <ClockIcon size={13} />
             最近更新
-            <b className="ark-mono" style={{ color: lastUpdate ? "var(--ark-text)" : "var(--ark-amber)" }}>
-              {lastUpdate ?? "待首传"}
-            </b>
-          </span>
-          <span className="ark-chip">
+            <b className="ark-mono">{lastUpdate ?? "待首传"}</b>
+          </Badge>
+          <Badge variant="secondary">
             <DatabaseIcon size={13} />
             每批 {s.expected_node_count} 节点
-          </span>
-          <span className="ark-chip">
+          </Badge>
+          <Badge variant="secondary">
             <CoinsIcon size={13} />
             续价 {s.price_per_update} LDC/次
-          </span>
+          </Badge>
         </div>
       </section>
 
@@ -140,16 +152,13 @@ export default async function Home() {
             lastUpdate={lastUpdate}
           />
 
-          <div className="ark-card relative flex flex-col gap-4 p-6">
+          <LayerCard className="flex flex-col gap-4 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-semibold">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg"
-                  style={{ background: "var(--ark-surface-2)", color: "var(--ark-accent)" }}>
-                  <CoinsIcon size={18} />
-                </span>
+                <CoinsIcon size={18} style={{ color: "var(--ark-accent)" }} />
                 更新额度
               </div>
-              <span className="ark-chip">免费期后</span>
+              <Badge variant="secondary">免费期后</Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="ark-display text-4xl font-extrabold" style={{ color: "var(--ark-accent)" }}>
@@ -181,27 +190,29 @@ export default async function Home() {
               后进入
               <a href="/dashboard" style={{ color: "var(--ark-accent)" }}> 面板</a>。
             </div>
-          </div>
+          </LayerCard>
         </div>
 
-        {/* 不退款声明 */}
-        <div className="ark-card mt-4 flex items-start gap-3 p-4"
-          style={{ borderColor: "color-mix(in srgb, var(--ark-amber) 35%, transparent)" }}>
-          <WarningIcon size={20} weight="fill" className="mt-0.5 shrink-0" style={{ color: "var(--ark-amber)" }} />
-          <div className="text-sm" style={{ color: "var(--ark-muted)" }}>
-            <b style={{ color: "var(--ark-text)" }}>不退款声明:</b>
-            本服务为虚拟商品,支付后一律不退款(无论是否使用)。
-            购买即视为同意
-            <a href="/tos" style={{ color: "var(--ark-accent)" }}>《服务条款》</a>。
-          </div>
+        <div className="mt-4">
+          <Banner
+            icon={<WarningIcon weight="fill" />}
+            variant="alert"
+            title="不退款声明"
+            description="本服务为虚拟商品,支付后一律不退款(无论是否使用)。购买即视为同意《服务条款》。"
+          />
         </div>
       </section>
 
       {/* ===== 底部 ===== */}
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t py-8 text-sm"
-        style={{ borderColor: "var(--ark-border)", color: "var(--ark-muted)" }}>
+      <footer
+        className="flex flex-wrap items-center justify-between gap-3 border-t py-8 text-sm"
+        style={{ borderColor: "var(--ark-border)", color: "var(--ark-muted)" }}
+      >
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}>
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-md"
+            style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}
+          >
             <GlobeHemisphereWestIcon size={13} weight="bold" />
           </span>
           Arkadia

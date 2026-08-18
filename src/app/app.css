@@ -169,6 +169,24 @@ body {
 /* 长文本(订阅链接/单号)换行 */
 .break-anywhere { overflow-wrap: anywhere; }
 
+/* ===== Kumo Sidebar 响应式(app-main 与侧栏联动) ===== */
+@media (min-width: 1024px) {
+  body:has(aside[data-sidebar-open="true"]) .admin-main {
+    margin-left: 304px;
+  }
+  body:has(aside[data-sidebar-open="false"]) .admin-main {
+    margin-left: 48px;
+  }
+}
+
+@media (max-width: 1023px) {
+  aside[data-sidebar-open="true"] {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+  }
+}
+
 /* 管理端表格:粘性表头小屏优化 */
 .ark-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .ark-table th {

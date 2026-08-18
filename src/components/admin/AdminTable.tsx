@@ -1,6 +1,8 @@
 "use client";
 
-/** 管理端通用表格:自绘 ark-table,横向滚动适配手机 */
+import { LayerCard, Table } from "@/components/kumo";
+
+/** 管理端通用表格:Kumo Table + LayerCard,横向滚动适配手机 */
 export default function AdminTable({
   head,
   rows,
@@ -10,31 +12,31 @@ export default function AdminTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="ark-card p-6 text-center text-sm" style={{ color: "var(--ark-muted)" }}>
+      <LayerCard className="p-6 text-center text-sm" style={{ color: "var(--ark-muted)" }}>
         暂无数据
-      </div>
+      </LayerCard>
     );
   }
   return (
-    <div className="ark-card ark-scroll-x">
-      <table className="ark-table">
-        <thead>
-          <tr>
+    <LayerCard className="w-full overflow-x-auto p-0">
+      <Table>
+        <Table.Header>
+          <Table.Row>
             {head.map((h) => (
-              <th key={h}>{h}</th>
+              <Table.Head key={h}>{h}</Table.Head>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {rows.map((row, i) => (
-            <tr key={i}>
+            <Table.Row key={i}>
               {row.map((cell, j) => (
-                <td key={j}>{cell}</td>
+                <Table.Cell key={j}>{cell}</Table.Cell>
               ))}
-            </tr>
+            </Table.Row>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </Table.Body>
+      </Table>
+    </LayerCard>
   );
 }

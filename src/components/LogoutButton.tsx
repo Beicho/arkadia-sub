@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, LinkButton } from "@/components/kumo";
 import { SignInIcon, SignOutIcon } from "@phosphor-icons/react";
 
 export default function LoginButton({
@@ -7,32 +8,28 @@ export default function LoginButton({
 }: {
   variant?: "primary" | "secondary" | "ghost";
 }) {
-  const cls =
-    variant === "primary"
-      ? "ark-btn ark-btn-primary"
-      : variant === "secondary"
-        ? "ark-btn ark-btn-ghost ark-btn-sm"
-        : "ark-btn ark-btn-ghost";
   return (
-    <button className={cls} onClick={() => (location.href = "/api/auth/login")}>
-      <SignInIcon size={15} />
+    <Button variant={variant} icon={SignInIcon} onClick={() => (location.href = "/api/auth/login")}>
       LinuxDo 登录
-    </button>
+    </Button>
   );
 }
 
 export function LogoutButton() {
   return (
-    <button
-      className="ark-btn ark-btn-ghost ark-btn-sm"
+    <Button
+      variant="ghost"
+      size="sm"
+      icon={SignOutIcon}
       onClick={() => {
         void fetch("/api/auth/logout", { method: "POST" }).then(() => {
           location.href = "/";
         });
       }}
     >
-      <SignOutIcon size={14} />
       退出
-    </button>
+    </Button>
   );
 }
+
+export { LinkButton };

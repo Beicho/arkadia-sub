@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Input } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 type Action =
@@ -51,105 +52,115 @@ export default function UserActions({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {banned ? (
-        <button
-          className="ark-btn ark-btn-ghost ark-btn-sm"
+        <Button
+          variant="secondary"
+          size="xs"
+          loading={loading === "unban"}
           disabled={loading !== null}
           onClick={() => run("unban")}
         >
-          {loading === "unban" ? "…" : "解封"}
-        </button>
+          解封
+        </Button>
       ) : admin ? (
         <span className="text-xs" style={{ color: "var(--ark-muted)" }}>—</span>
       ) : (
         <>
-          <input
-            className="w-24 rounded-lg px-2 py-1 text-xs"
-            style={{
-              border: "1px solid var(--ark-border-strong)",
-              background: "var(--ark-bg)",
-              color: "var(--ark-text)",
-            }}
-            placeholder="封禁原因"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <button
-            className="ark-btn ark-btn-danger ark-btn-sm"
+          <div className="w-28">
+            <Input
+              placeholder="封禁原因"
+              value={reason}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReason(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary-destructive"
+            size="xs"
+            loading={loading === "ban"}
             disabled={loading !== null}
             onClick={ban}
           >
-            {loading === "ban" ? "…" : "封禁"}
-          </button>
+            封禁
+          </Button>
         </>
       )}
-      <button
-        className="ark-btn ark-btn-ghost ark-btn-sm"
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => {
           setShowDays((v) => !v);
           setShowCredits(false);
         }}
       >
         免费天
-      </button>
+      </Button>
       {showDays ? (
         <span className="flex items-center gap-1">
-          <input
-            className="ark-input w-16 px-2 py-1 text-xs"
-            type="number"
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-          />
-          <button
-            className="ark-btn ark-btn-ghost ark-btn-sm"
+          <div className="w-16">
+            <Input
+              type="number"
+              value={days}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDays(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            size="xs"
             disabled={loading !== null}
             onClick={() => run("add_days", { days: Number(days) })}
           >
             确认
-          </button>
+          </Button>
         </span>
       ) : null}
-      <button
-        className="ark-btn ark-btn-ghost ark-btn-sm"
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => {
           setShowCredits((v) => !v);
           setShowDays(false);
         }}
       >
         额度
-      </button>
+      </Button>
       {showCredits ? (
         <span className="flex items-center gap-1">
-          <input
-            className="ark-input w-16 px-2 py-1 text-xs"
-            type="number"
-            value={credits}
-            onChange={(e) => setCredits(e.target.value)}
-          />
-          <button
-            className="ark-btn ark-btn-ghost ark-btn-sm"
+          <div className="w-16">
+            <Input
+              type="number"
+              value={credits}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCredits(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            size="xs"
             disabled={loading !== null}
             onClick={() => run("add_credits", { credits: Number(credits) })}
           >
             确认
-          </button>
+          </Button>
         </span>
       ) : null}
-      <button
-        className="ark-btn ark-btn-ghost ark-btn-sm"
+      <Button
+        variant="ghost"
+        size="xs"
+        loading={loading === "reset_token"}
         disabled={loading !== null}
         onClick={() => {
           if (confirm("重置该用户订阅链接?旧链接立即作废。")) run("reset_token");
         }}
       >
-        {loading === "reset_token" ? "…" : "重置链接"}
-      </button>
-      <button
-        className="ark-btn ark-btn-ghost ark-btn-sm"
+        重置链接
+      </Button>
+      <Button
+        variant="ghost"
+        size="xs"
+        loading={loading === "activate"}
         disabled={loading !== null}
         onClick={() => run("activate")}
       >
         强制激活
-      </button>
+      </Button>
     </div>
   );
 }

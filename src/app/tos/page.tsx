@@ -1,4 +1,5 @@
 import { WarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { LinkButton } from "@/components/kumo";
 
 export const metadata = { title: "服务条款 — Arkadia" };
 
@@ -73,7 +74,7 @@ export default function TosPage() {
       </article>
 
       <footer className="mt-12 pb-6 text-center">
-        <a href="/" className="ark-btn ark-btn-ghost ark-btn-sm">← 返回首页</a>
+        <LinkButton href="/" variant="secondary" size="sm">← 返回首页</LinkButton>
       </footer>
     </div>
   );

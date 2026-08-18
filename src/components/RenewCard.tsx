@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Input, LayerCard, Switch } from "@/components/kumo";
 import { CoinsIcon } from "@phosphor-icons/react";
 import { apiPost } from "@/components/api";
 
@@ -38,18 +39,15 @@ export default function RenewCard({
   const amount = credits * pricePerUpdate;
 
   return (
-    <div className="ark-card flex flex-col gap-4 p-6">
+    <LayerCard className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ background: "var(--ark-surface-2)", color: "var(--ark-accent)" }}
-          >
-            <CoinsIcon size={18} />
-          </span>
+          <CoinsIcon size={18} style={{ color: "var(--ark-accent)" }} />
           购买更新额度
         </div>
-        <span className="ark-chip">{pricePerUpdate} LDC / 次</span>
+        <span className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
+          {pricePerUpdate} LDC / 次
+        </span>
       </div>
 
       <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
@@ -60,33 +58,30 @@ export default function RenewCard({
         <div className="ark-label">选择数量</div>
         <div className="flex flex-wrap gap-2">
           {QUICK.filter((q) => q <= maxCredits).map((q) => (
-            <button
+            <Button
               key={q}
+              variant={credits === q ? "primary" : "secondary"}
+              size="sm"
               onClick={() => setCredits(q)}
-              className="ark-btn ark-btn-sm"
-              style={
-                credits === q
-                  ? { background: "var(--ark-accent)", color: "var(--ark-accent-ink)", borderColor: "transparent" }
-                  : undefined
-              }
             >
               {q} 次
-            </button>
+            </Button>
           ))}
-          <input
-            className="ark-input w-24 text-center"
-            type="number"
-            min={1}
-            max={maxCredits}
-            value={credits}
-            aria-label="自定义额度数"
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              const v = Number(e.target.value);
-              setCredits(
-                Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxCredits) : 1,
-              );
-            }}
-          />
+          <div className="w-24">
+            <Input
+              type="number"
+              min={1}
+              max={maxCredits}
+              value={String(credits)}
+              aria-label="自定义额度数"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const v = Number(e.target.value);
+                setCredits(
+                  Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxCredits) : 1,
+                );
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -106,16 +101,10 @@ export default function RenewCard({
           style={{
             background: "color-mix(in srgb, var(--ark-amber) 9%, transparent)",
             color: "var(--ark-amber)",
-            borderColor: "color-mix(in srgb, var(--ark-amber) 30%, transparent)",
-            border: "1px solid",
+            border: "1px solid color-mix(in srgb, var(--ark-amber) 30%, transparent)",
           }}
         >
-          <input
-            type="checkbox"
-            checked={accept}
-            onChange={(e) => setAccept(e.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-[var(--ark-accent)]"
-          />
+          <Switch checked={accept} onCheckedChange={setAccept} variant="neutral" />
           <span>
             我已阅读并同意
             <a href="/tos" target="_blank" rel="noreferrer" className="underline">
@@ -138,13 +127,15 @@ export default function RenewCard({
         </div>
       ) : null}
 
-      <button
-        className="ark-btn ark-btn-primary w-full"
-        disabled={loading || (!accept && !noRefundAccepted)}
+      <Button
+        variant="primary"
+        className="w-full"
+        loading={loading}
+        disabled={!accept && !noRefundAccepted}
         onClick={pay}
       >
-        {loading ? "正在创建订单…" : `支付 ${amount} LDC`}
-      </button>
-    </div>
+        支付 {amount} LDC
+      </Button>
+    </LayerCard>
   );
 }

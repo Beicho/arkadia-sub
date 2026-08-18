@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Input } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 export default function RedeemForm() {
@@ -28,16 +29,14 @@ export default function RedeemForm() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="ark-label" htmlFor="redeem-code">注册码</label>
-        <input
-          id="redeem-code"
-          className="ark-input ark-mono"
-          placeholder="ARK-XXXX-XXXX-XXXX"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-        />
-      </div>
+      <Input
+        label="注册码"
+        placeholder="ARK-XXXX-XXXX-XXXX"
+        value={code}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setCode(e.target.value.toUpperCase())
+        }
+      />
       {error ? (
         <div
           className="rounded-lg px-3 py-2 text-sm"
@@ -49,9 +48,9 @@ export default function RedeemForm() {
           {error}
         </div>
       ) : null}
-      <button className="ark-btn ark-btn-primary w-full" disabled={loading} onClick={submit}>
-        {loading ? "兑换中…" : "兑换并激活"}
-      </button>
+      <Button variant="primary" loading={loading} onClick={submit} className="w-full">
+        兑换并激活
+      </Button>
     </div>
   );
 }

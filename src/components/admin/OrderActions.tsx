@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 export default function OrderActions({
@@ -33,9 +34,7 @@ export default function OrderActions({
     if (!confirm(tip)) return;
     setLoading("cancel");
     try {
-      const res = await apiPost<{ message?: string }>(
-        `/api/admin/orders/${id}/cancel`,
-      );
+      const res = await apiPost<{ message?: string }>(`/api/admin/orders/${id}/cancel`);
       alert(res.message ?? "已取消");
       router.refresh();
     } catch (e) {
@@ -48,33 +47,38 @@ export default function OrderActions({
   if (status === "pending") {
     return (
       <div className="flex gap-1.5">
-        <button
-          className="ark-btn ark-btn-ghost ark-btn-sm"
+        <Button
+          variant="secondary"
+          size="xs"
+          loading={loading === "reconcile"}
           disabled={loading !== null}
           onClick={reconcile}
         >
-          {loading === "reconcile" ? "…" : "对账"}
-        </button>
-        <button
-          className="ark-btn ark-btn-danger ark-btn-sm"
+          对账
+        </Button>
+        <Button
+          variant="secondary-destructive"
+          size="xs"
+          loading={loading === "cancel"}
           disabled={loading !== null}
           onClick={() => cancel(false)}
         >
-          {loading === "cancel" ? "…" : "取消"}
-        </button>
+          取消
+        </Button>
       </div>
     );
   }
 
   if (status === "paid") {
     return (
-      <button
-        className="ark-btn ark-btn-danger ark-btn-sm"
-        disabled={loading !== null}
+      <Button
+        variant="secondary-destructive"
+        size="xs"
+        loading={loading === "cancel"}
         onClick={() => cancel(true)}
       >
-        {loading === "cancel" ? "退款中…" : "退款取消"}
-      </button>
+        退款取消
+      </Button>
     );
   }
 

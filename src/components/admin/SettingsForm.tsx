@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Input, LayerCard } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 export type SettingsValues = {
@@ -22,7 +23,7 @@ const NUM_FIELDS: { key: keyof SettingsValues; label: string; hint: string }[] =
   { key: "trust_level_min", label: "最低信任等级", hint: "0-4;低于该值不能登录购买" },
   { key: "expected_node_count", label: "期望节点数/批", hint: "上传批次数量校验" },
   { key: "max_credits_per_order", label: "单笔最大额度数", hint: "一次最多买多少个更新额度" },
-  { key: "auto_ban_fp_threshold", label: "指纹自动封禁阈值", hint: "同设备账号数达到该值自动封禁" },
+  { key: "auto_ban_fp_threshold", label: "同浏览器自动封禁阈值", hint: "同设备 ID 账号数达到该值自动封禁" },
 ];
 
 export default function SettingsForm({ initial }: { initial: SettingsValues }) {
@@ -47,11 +48,7 @@ export default function SettingsForm({ initial }: { initial: SettingsValues }) {
       return;
     }
     try {
-      await apiPost(
-        "/api/admin/settings",
-        { ...values, admin_usernames: adminList },
-        "PUT",
-      );
+      await apiPost("/api/admin/settings", { ...values, admin_usernames: adminList }, "PUT");
       setMsg("已保存");
       router.refresh();
     } catch (e) {
@@ -62,42 +59,30 @@ export default function SettingsForm({ initial }: { initial: SettingsValues }) {
   };
 
   return (
-    <div className="ark-card space-y-5 p-6">
+    <LayerCard className="space-y-5 p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         {NUM_FIELDS.map((f) => (
-          <div key={f.key}>
-            <label className="ark-label" htmlFor={`set-${f.key}`}>
-              {f.label}
-              <span className="ml-1 text-xs" style={{ color: "var(--ark-muted)", opacity: 0.7 }}>
-                ({f.hint})
-              </span>
-            </label>
-            <input
-              id={`set-${f.key}`}
-              className="ark-input ark-mono"
-              type="number"
-              value={String(values[f.key])}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, [f.key]: Number(e.target.value) }))
-              }
-            />
-          </div>
+          <Input
+            key={f.key}
+            label={`${f.label}(${f.hint})`}
+            type="number"
+            value={String(values[f.key])}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setValues((v) => ({ ...v, [f.key]: Number(e.target.value) }))
+            }
+          />
         ))}
       </div>
-      <div>
-        <label className="ark-label" htmlFor="set-admins">管理员 LinuxDo 用户名(逗号分隔)</label>
-        <input
-          id="set-admins"
-          className="ark-input"
-          value={admins}
-          onChange={(e) => setAdmins(e.target.value)}
-        />
-      </div>
+      <Input
+        label="管理员 LinuxDo 用户名(逗号分隔)"
+        value={admins}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdmins(e.target.value)}
+      />
       {err ? <div className="text-sm" style={{ color: "var(--ark-red)" }}>{err}</div> : null}
       {msg ? <div className="text-sm" style={{ color: "var(--ark-green)" }}>{msg}</div> : null}
-      <button className="ark-btn ark-btn-primary" disabled={loading} onClick={save}>
-        {loading ? "保存中…" : "保存设置"}
-      </button>
-    </div>
+      <Button variant="primary" loading={loading} onClick={save}>
+        保存设置
+      </Button>
+    </LayerCard>
   );
 }

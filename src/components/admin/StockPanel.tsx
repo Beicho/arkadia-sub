@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Input, LayerCard } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 
 export default function StockPanel({ stock }: { stock: number }) {
@@ -29,10 +30,13 @@ export default function StockPanel({ stock }: { stock: number }) {
   };
 
   return (
-    <div className="ark-card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
+    <LayerCard className="flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <div className="ark-label">注册码库存(用户可买的名额)</div>
-        <div className="ark-display text-3xl font-extrabold" style={{ color: stock > 0 ? "var(--ark-green)" : "var(--ark-red)" }}>
+        <div
+          className="ark-display text-3xl font-extrabold"
+          style={{ color: stock > 0 ? "var(--ark-green)" : "var(--ark-red)" }}
+        >
           {stock}
         </div>
         <p className="mt-1 text-xs" style={{ color: "var(--ark-muted)" }}>
@@ -41,24 +45,22 @@ export default function StockPanel({ stock }: { stock: number }) {
       </div>
       <div className="flex items-end gap-2">
         <div className="w-28">
-          <label className="ark-label" htmlFor="stock-delta">调整数量</label>
-          <input
-            id="stock-delta"
-            className="ark-input"
+          <Input
+            label="调整数量"
             type="number"
             min={1}
             value={delta}
-            onChange={(e) => setDelta(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDelta(e.target.value)}
           />
         </div>
-        <button className="ark-btn ark-btn-primary" disabled={loading !== null} onClick={() => change(1)}>
-          {loading === "add" ? "…" : "加库存"}
-        </button>
-        <button className="ark-btn ark-btn-ghost" disabled={loading !== null} onClick={() => change(-1)}>
-          {loading === "sub" ? "…" : "减库存"}
-        </button>
+        <Button variant="primary" disabled={loading !== null} loading={loading === "add"} onClick={() => change(1)}>
+          加库存
+        </Button>
+        <Button variant="secondary" disabled={loading !== null} loading={loading === "sub"} onClick={() => change(-1)}>
+          减库存
+        </Button>
       </div>
       {msg ? <div className="text-sm" style={{ color: "var(--ark-red)" }}>{msg}</div> : null}
-    </div>
+    </LayerCard>
   );
 }

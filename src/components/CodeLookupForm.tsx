@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Input } from "@/components/kumo";
 import { apiPost } from "@/components/api";
 import CopyField from "@/components/CopyField";
 
@@ -39,16 +40,12 @@ export default function CodeLookupForm() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="ark-label" htmlFor="lookup-q">订单号 / 注册码</label>
-        <input
-          id="lookup-q"
-          className="ark-input ark-mono"
-          placeholder="ARK20260818XXXXXX"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      <Input
+        label="订单号 / 注册码"
+        placeholder="ARK20260818XXXXXX"
+        value={query}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+      />
       {error ? (
         <div
           className="rounded-lg px-3 py-2 text-sm"
@@ -60,9 +57,9 @@ export default function CodeLookupForm() {
           {error}
         </div>
       ) : null}
-      <button className="ark-btn ark-btn-ghost" disabled={loading} onClick={submit}>
-        {loading ? "查询中…" : "查询"}
-      </button>
+      <Button variant="secondary" loading={loading} onClick={submit}>
+        查询
+      </Button>
       {code ? (
         <CopyField value={code} label={status === "redeemed" ? "注册码(已兑换)" : "你的注册码"} />
       ) : null}

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders } from "@/db/schema";
+import { Button, LinkButton, LayerCard } from "@/components/kumo";
 import { buildSubmitFields } from "@/lib/ldc";
 import { appUrl } from "@/lib/linuxdo";
 
@@ -30,7 +31,7 @@ export default async function PayPage({
         <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
           请回到首页重新下单。
         </p>
-        <a href="/" className="ark-btn ark-btn-ghost ark-btn-sm mt-4">返回首页</a>
+        <LinkButton href="/" variant="secondary" size="sm">返回首页</LinkButton>
       </main>
     );
   }
@@ -49,7 +50,7 @@ export default async function PayPage({
         <p className="ark-mono mb-6 text-xs" style={{ color: "var(--ark-muted)" }}>
           {order.outTradeNo}
         </p>
-        <a href={target} className="ark-btn ark-btn-primary">继续</a>
+        <LinkButton href={target} variant="primary">继续</LinkButton>
       </main>
     );
   }
@@ -71,7 +72,7 @@ export default async function PayPage({
 
   return (
     <main className="mx-auto max-w-md px-4 py-24">
-      <div className="ark-card space-y-5 p-6 text-center">
+      <LayerCard className="space-y-5 p-6 text-center">
         <h1 className="ark-display text-xl font-bold">正在前往 LDC 支付</h1>
         <div className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
           {order.outTradeNo}
@@ -99,11 +100,11 @@ export default async function PayPage({
               borderTopColor: "var(--ark-accent)",
             }}
           />
-          <button type="submit" form="payform" className="ark-btn ark-btn-ghost ark-btn-sm">
+          <Button type="submit" variant="secondary" size="sm">
             若未自动跳转,点这里提交
-          </button>
+          </Button>
         </div>
-      </div>
+      </LayerCard>
     </main>
   );
 }
