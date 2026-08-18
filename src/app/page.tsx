@@ -1,6 +1,6 @@
 import { Badge, Banner } from "@/components/kumo";
 
-import { GlobeIcon, ShieldCheckIcon, DatabaseIcon, WarningIcon } from "@phosphor-icons/react";
+import { GlobeIcon, ShieldCheckIcon, DatabaseIcon, WarningIcon } from "@phosphor-icons/react/dist/ssr";
 import BuyActivationCard from "@/components/BuyActivationCard";
 import DevLoginPanel from "@/components/DevLoginPanel";
 import LoginButton from "@/components/LogoutButton";

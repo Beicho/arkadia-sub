@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { orders } from "@/db/schema";
 import { Badge, Banner } from "@/components/kumo";
 
-import { CheckCircleIcon, GlobeIcon, InfoIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, GlobeIcon, InfoIcon } from "@phosphor-icons/react/dist/ssr";
 import CopyField from "@/components/CopyField";
 import Fingerprint from "@/components/Fingerprint";
 import RenewCard from "@/components/RenewCard";

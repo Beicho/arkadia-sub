@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { orders, redeemCodes } from "@/db/schema";
 import { Badge, Banner } from "@/components/kumo";
 
-import { CheckCircleIcon, InfoIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, InfoIcon } from "@phosphor-icons/react/dist/ssr";
 import CodeLookupForm from "@/components/CodeLookupForm";
 import CopyField from "@/components/CopyField";
 import LoginButton from "@/components/LogoutButton";
