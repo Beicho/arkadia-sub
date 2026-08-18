@@ -169,21 +169,25 @@ body {
 /* 长文本(订阅链接/单号)换行 */
 .break-anywhere { overflow-wrap: anywhere; }
 
-/* ===== Kumo Sidebar 响应式(app-main 与侧栏联动) ===== */
-@media (min-width: 1024px) {
-  body:has(aside[data-sidebar-open="true"]) .admin-main {
-    margin-left: 304px;
-  }
-  body:has(aside[data-sidebar-open="false"]) .admin-main {
-    margin-left: 48px;
+/* ===== Kumo Sidebar 布局补丁 =====
+   组件自带 flex 布局与移动端抽屉(fixed+translate),但移动端需要:
+   1. wrapper 改纵向,让顶栏 + 主内容上下排(移动端 aside 是 fixed 不占流)
+   2. 主内容区占满剩余宽度 */
+@media (max-width: 1023px) {
+  [data-sidebar-wrapper] {
+    flex-direction: column;
   }
 }
 
+[data-sidebar-wrapper] > .admin-main {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* 手机端主内容避开 sticky 顶栏 */
 @media (max-width: 1023px) {
-  aside[data-sidebar-open="true"] {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 50;
+  [data-sidebar-wrapper] > .admin-main {
+    padding-top: 0;
   }
 }
 

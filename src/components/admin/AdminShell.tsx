@@ -33,6 +33,19 @@ export default function AdminShell({
 
   return (
     <Sidebar.Provider defaultOpen>
+      {/* 手机顶栏:Trigger 必须在侧栏外,否则随收起的侧栏一起藏在屏幕外 */}
+      <div
+        className="admin-topbar sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden"
+        style={{
+          borderColor: "var(--ark-border)",
+          background: "color-mix(in srgb, var(--ark-bg) 88%, transparent)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <Sidebar.Trigger />
+        <span className="ark-display font-semibold">Arkadia 后台</span>
+        <span className="ark-chip">{username}</span>
+      </div>
       <Sidebar>
         <Sidebar.Content>
           <div className="flex items-center gap-2.5 px-4 pt-5">
