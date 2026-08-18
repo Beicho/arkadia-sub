@@ -297,7 +297,34 @@ export function buildClashYaml(
   if (proxies.length === 0) return null;
 
   const names = proxies.map((p) => String(p[0]?.[1]));
-  const lines: string[] = ["proxies:"];
+  const lines: string[] = [
+    // 基础配置 + DNS:部分客户端(FlClash 关闭"覆写 DNS"时)要求
+    // 配置自带完整 dns 段,否则报 default nameserver 为空
+    "mixed-port: 7890",
+    "allow-lan: false",
+    "mode: rule",
+    "log-level: info",
+    "unified-delay: true",
+    "tcp-concurrent: true",
+    "dns:",
+    "  enable: true",
+    "  listen: 0.0.0.0:1053",
+    "  ipv6: false",
+    "  enhanced-mode: fake-ip",
+    "  fake-ip-range: 198.18.0.1/16",
+    "  fake-ip-filter:",
+    '    - "*.lan"',
+    '    - "*.local"',
+    '    - "+.msftconnecttest.com"',
+    '    - "+.msftncsi.com"',
+    "  default-nameserver:",
+    "    - 223.5.5.5",
+    "    - 8.8.8.8",
+    "  nameserver:",
+    "    - https://223.5.5.5/dns-query",
+    "    - https://1.1.1.1/dns-query",
+    "proxies:",
+  ];
   for (const p of proxies) lines.push(emitProxy(p));
 
   lines.push("proxy-groups:");

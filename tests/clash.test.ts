@@ -88,8 +88,11 @@ describe("buildClashYaml", () => {
     expect(yaml).toContain('name: "dup-name 2"');
   });
 
-  it("完整配置:选择组 + MATCH 规则(组名不带引号)", () => {
+  it("完整配置:DNS 段 + 选择组 + MATCH 规则(组名不带引号)", () => {
     const yaml = buildClashYaml([VLESS_REALITY, HY2, TROJAN])!;
+    expect(yaml).toContain("dns:");
+    expect(yaml).toContain("default-nameserver:");
+    expect(yaml).toContain("- 223.5.5.5");
     expect(yaml).toContain("proxies:");
     expect(yaml).toContain("proxy-groups:");
     expect(yaml).toContain("type: select");
