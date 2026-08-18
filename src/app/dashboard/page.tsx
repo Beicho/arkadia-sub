@@ -151,9 +151,9 @@ export default async function DashboardPage({
                 href={`/${user.subToken}?raw=1`}
                 variant="secondary"
                 size="sm"
-                icon={DownloadSimpleIcon}
                 external
               >
+                <DownloadSimpleIcon size={14} />
                 下载节点文件
               </LinkButton>
               <ResetTokenButton />
