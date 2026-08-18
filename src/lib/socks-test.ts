@@ -14,6 +14,73 @@ export type SocksCheckResult = {
 const PROBE_HOST = "www.gstatic.com";
 const PROBE_PORT = 80;
 
+/** 统一入口:按协议分派到 SOCKS5 握手或 HTTP CONNECT */
+export function checkProxy(
+  host: string,
+  port: number,
+  protocol: "socks5" | "http" = "socks5",
+  timeoutMs = 8000,
+): Promise<SocksCheckResult> {
+  return protocol === "http"
+    ? checkHttpConnect(host, port, timeoutMs)
+    : checkSocks5(host, port, timeoutMs);
+}
+
+/** HTTP 代理探测:CONNECT 隧道 + 204 请求 */
+function checkHttpConnect(
+  host: string,
+  port: number,
+  timeoutMs = 8000,
+): Promise<SocksCheckResult> {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    let settled = false;
+    let gotStatus = false;
+    const done = (ok: boolean, error?: string) => {
+      if (settled) return;
+      settled = true;
+      try { socket.destroy(); } catch { /* 已关 */ }
+      resolve({ ok, latencyMs: Date.now() - t0, error });
+    };
+
+    const socket = net.connect({ host, port });
+    socket.setTimeout(timeoutMs);
+    socket.on("timeout", () => done(false, "timeout"));
+    socket.on("error", (e: NodeJS.ErrnoException) => done(false, e.code ?? e.message));
+    socket.on("close", () => { if (!settled) done(gotStatus); });
+
+    socket.on("connect", () => {
+      socket.write(
+        `CONNECT ${PROBE_HOST}:${PROBE_PORT} HTTP/1.1\r\nHost: ${PROBE_HOST}:${PROBE_PORT}\r\n\r\n`,
+        "latin1",
+      );
+    });
+
+    let buf = "";
+    socket.on("data", (chunk) => {
+      buf += chunk.toString("latin1");
+      if (!gotStatus) {
+        const m = /^HTTP\/1\.[01] (\d{3})/.exec(buf);
+        if (!m) {
+          if (buf.length > 32) return done(false, "not-http-proxy");
+          return;
+        }
+        if (m[1] !== "200") return done(false, `connect-reject-${m[1]}`);
+        gotStatus = true;
+        buf = "";
+        socket.write(
+          `GET /generate_204 HTTP/1.1\r\nHost: ${PROBE_HOST}\r\nUser-Agent: ark-check/1.0\r\nAccept: */*\r\nConnection: close\r\n\r\n`,
+          "latin1",
+        );
+        return;
+      }
+      const m2 = /^HTTP\/1\.[01] (\d{3})/.exec(buf);
+      if (m2) done(m2[1] === "204" || m2[1] === "200");
+      else if (buf.length > 16) done(false, "bad-http-response");
+    });
+  });
+}
+
 export function checkSocks5(
   host: string,
   port: number,

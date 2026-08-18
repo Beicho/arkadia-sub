@@ -171,6 +171,8 @@ export const socksPool = pgTable(
     id: serial("id").primaryKey(),
     host: text("host").notNull(),
     port: integer("port").notNull(),
+    // socks5 | http(代理协议,测活与下发格式共用)
+    protocol: text("protocol").notNull().default("socks5"),
     line: text("line").notNull(),
     // ["原生IP","家宽",...] 标签
     tags: jsonb("tags").$type<string[]>().notNull().default([]),

@@ -37,7 +37,25 @@ export function uriToSingboxOutbound(uri: string, tag: string): Outbound | null 
   if (lower.startsWith("trojan://")) return trojan(uri, tag);
   if (lower.startsWith("socks5://") || lower.startsWith("socks://"))
     return socks5(uri, tag);
+  if (lower.startsWith("http://") || lower.startsWith("https://"))
+    return httpOut(uri, tag);
   return null;
+}
+
+function httpOut(uri: string, tag: string): Outbound | null {
+  const url = safeUrl(uri);
+  if (!url || !url.hostname) return null;
+  const ob: Outbound = {
+    type: "http",
+    tag,
+    server: url.hostname,
+    server_port: portOrDefault(url, 8080),
+  };
+  if (url.username) {
+    ob.username = decodeURIComponent(url.username);
+    ob.password = decodeURIComponent(url.password ?? "");
+  }
+  return ob;
 }
 
 function vless(uri: string, tag: string): Outbound | null {

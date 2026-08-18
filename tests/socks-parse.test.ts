@@ -83,10 +83,21 @@ describe("parseSocksLine", () => {
     expect(atPwd.residential).toBe(true);
   });
 
-  it("非 SOCKS5 协议不认", () => {
-    expect(parseSocksLine("http://1.2.3.4:8080 [家宽] X [X]")).toBeNull();
+  it("HTTP 代理:解析 + 命名 + 入池过滤", () => {
+    const http = parseSocksLine(
+      "http://54.211.9.58:3128 [原生IP] 美国 [美国 弗吉尼亚州 阿什本 — 亚马逊云 Aws] 入库:2026-08-19 06:42:01",
+    )!;
+    expect(http.host).toBe("54.211.9.58");
+    expect(http.protocol).toBe("http");
+    expect(http.nativeIp).toBe(true);
+    expect(isEligible(http)).toBe(true);
+    expect(socksNodeName(http)).toContain("[HTTP·原生]");
+    expect(socksNodeName(http)).toContain("美国");
+  });
+
+  it("非白名单协议不认", () => {
     expect(parseSocksLine("socks4://1.2.3.4:1080 [家宽] X [X]")).toBeNull();
-    expect(parseSocksLine("https://example.com:443 path")).toBeNull();
+    expect(parseSocksLine("ftp://example.com:21 path")).toBeNull();
   });
 
   it("脏行/空行返回 null,不抛错", () => {

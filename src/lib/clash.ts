@@ -55,7 +55,26 @@ export function uriToClashProxy(uri: string, name: string): YamlPairs | null {
   if (lower.startsWith("trojan://")) return trojanToClash(uri, name);
   if (lower.startsWith("socks5://") || lower.startsWith("socks://"))
     return socks5ToClash(uri, name);
+  if (lower.startsWith("http://") || lower.startsWith("https://"))
+    return httpToClash(uri, name);
   return null;
+}
+
+function httpToClash(uri: string, name: string): YamlPairs | null {
+  const url = safeUrl(uri);
+  if (!url || !url.hostname) return null;
+  const proxy: YamlPairs = [
+    ["name", name],
+    ["type", "http"],
+    ["server", url.hostname],
+    ["port", portOrDefault(url, 8080)],
+  ];
+  if (url.username) {
+    proxy.push(["username", decodeURIComponent(url.username)]);
+    proxy.push(["password", decodeURIComponent(url.password ?? "")]);
+  }
+  if (truthyParam(url, "tls")) proxy.push(["tls", true]);
+  return proxy;
 }
 
 function socks5ToClash(uri: string, name: string): YamlPairs | null {

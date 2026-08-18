@@ -8,6 +8,7 @@
 export type SocksEntry = {
   host: string;
   port: number;
+  protocol: "socks5" | "http";
   line: string;
   tags: string[];
   nativeIp: boolean;
@@ -26,7 +27,8 @@ export type SocksEntry = {
 // host:port + 可选元数据(空白/|/,分隔);userinfo 单独用 rfind('@') 剥离(密码可含 @)
 const AUTH_RE =
   /^([a-zA-Z0-9.\-]+):(\d{1,5})(?:[\s|,]+(.*))?$/;
-const SCHEME_RE = /^socks5h?:\/\//i;
+// 接受的协议前缀:socks5(含 socks5h)/ http / https —— 池里 HTTP 代理占大头
+const SCHEME_RE = /^(socks5h?|https?):\/\//i;
 const OTHER_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 /** 已知云服务商关键词(从地区串里识别,命中则进节点名) */
@@ -56,9 +58,14 @@ const PROVIDER_KEYWORDS = [
 export function parseSocksLine(raw: string): SocksEntry | null {
   let line = raw.trim();
   if (!line) return null;
-  // 其他协议(http/socks4 等)明确不认,避免误测
-  if (OTHER_SCHEME_RE.test(line) && !SCHEME_RE.test(line)) return null;
-  if (SCHEME_RE.test(line)) line = line.replace(SCHEME_RE, "");
+  let protocol: "socks5" | "http" = "socks5";
+  const sm = SCHEME_RE.exec(line);
+  if (sm) {
+    protocol = /^h/i.test(sm[1]) ? "http" : "socks5";
+    line = line.slice(sm[0].length);
+  } else if (OTHER_SCHEME_RE.test(line)) {
+    return null; // socks4:// 等不认识的 scheme
+  }
 
   // userinfo:从右找最后一个 @ 剥离(密码可含 @);裸用户名(无冒号)不认识
   let body = line;
@@ -115,6 +122,7 @@ export function parseSocksLine(raw: string): SocksEntry | null {
   return {
     host,
     port,
+    protocol,
     line,
     tags,
     nativeIp,
@@ -152,7 +160,8 @@ export function socksNodeName(e: SocksEntry): string {
     : "原生";
   const place = buildPlace(e);
   const provider = e.provider ? `·${e.provider}` : "";
-  return `[SOCKS5·${typeTag}] ${place}${provider}`;
+  const proto = e.protocol === "http" ? "HTTP" : "SOCKS5";
+  return `[${proto}·${typeTag}] ${place}${provider}`;
 }
 
 function buildPlace(e: SocksEntry): string {

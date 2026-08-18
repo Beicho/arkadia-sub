@@ -12,6 +12,12 @@ import {
 import { getSocksRunState, startSocksRun } from "@/lib/socks-runner";
 import { shanghaiToday } from "@/lib/time";
 
+/** 下发 URI:按代理协议生成 scheme;名字标注协议 */
+function proxyUri(b: { entry: { host: string; port: number; protocol: "socks5" | "http" } }): string {
+  const scheme = b.entry.protocol === "http" ? "http" : "socks5";
+  return `${scheme}://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`;
+}
+
 export const dynamic = "force-dynamic";
 
 const MAX_TEXT_BYTES = 5 * 1024 * 1024; // 5MB 上限,约 6 万行
@@ -67,6 +73,7 @@ function rowToEntry(r: SocksRow) {
   return {
     host: r.host,
     port: r.port,
+    protocol: r.protocol === "http" ? ("http" as const) : ("socks5" as const),
     line: r.line,
     tags: r.tags ?? [],
     nativeIp: (r.tags ?? []).includes("原生IP"),
@@ -141,6 +148,7 @@ export async function POST(req: Request) {
           chunk.map((e) => ({
             host: e.host,
             port: e.port,
+            protocol: e.protocol,
             line: e.line,
             tags: e.tags,
             country: e.country,
@@ -240,7 +248,7 @@ export async function POST(req: Request) {
     }
 
     const socksUris = best.map(
-      (b) => `socks5://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`,
+      (b) => proxyUri(b),
     );
     const batchDate = shanghaiToday();
     const [created] = await db
@@ -345,7 +353,7 @@ export async function POST(req: Request) {
       (n) => !n.toLowerCase().startsWith("socks5://"),
     );
     const socksUris = best.map(
-      (b) => `socks5://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`,
+      (b) => proxyUri(b),
     );
     const mergedNodes = [...baseNodes, ...socksUris];
     const batchDate = current?.batchDate ?? shanghaiToday();
@@ -446,7 +454,7 @@ export async function POST(req: Request) {
       .limit(1);
 
     const socksUris = best.map(
-      (b) => `socks5://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`,
+      (b) => proxyUri(b),
     );
     const mergedNodes = [
       ...((current?.nodes as string[]) ?? []),

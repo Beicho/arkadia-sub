@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { socksPool } from "@/db/schema";
-import { checkSocks5, runPool } from "@/lib/socks-test";
+import { checkProxy, runPool } from "@/lib/socks-test";
 
 export type SocksRunState = {
   running: boolean;
@@ -35,7 +35,12 @@ export async function startSocksRun(limit = 20000): Promise<boolean> {
   if (state.running) return false;
 
   const targets = await db
-    .select({ id: socksPool.id, host: socksPool.host, port: socksPool.port })
+    .select({
+      id: socksPool.id,
+      host: socksPool.host,
+      port: socksPool.port,
+      protocol: socksPool.protocol,
+    })
     .from(socksPool)
     .limit(limit);
 
@@ -51,7 +56,7 @@ export async function startSocksRun(limit = 20000): Promise<boolean> {
   void (async () => {
     try {
       await runPool(targets, 100, async (t) => {
-        const r = await checkSocks5(t.host, t.port, 8000);
+        const r = await checkProxy(t.host, t.port, t.protocol === "http" ? "http" : "socks5", 8000);
         if (r.ok) state.ok++;
         else state.fail++;
         state.done++;

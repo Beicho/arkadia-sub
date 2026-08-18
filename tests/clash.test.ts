@@ -81,6 +81,12 @@ describe("uriToClashProxy", () => {
     expect(p.find(([k]) => k === "password")![1]).toBe("p@ss");
   });
 
+  it("http 代理 → type: http", () => {
+    const p = uriToClashProxy("http://1.2.3.4:3128#hp", "N8")!;
+    expect(p.find(([k]) => k === "type")![1]).toBe("http");
+    expect(p.find(([k]) => k === "port")![1]).toBe(3128);
+  });
+
   it("不认识的协议返回 null", () => {
     expect(uriToClashProxy("tuic://x@y:1", "N")).toBeNull();
   });
