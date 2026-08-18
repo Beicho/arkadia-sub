@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 
 /**
- * 登录后静默上报设备指纹(canvas/WebGL/屏幕/时区/语言等),
- * 用于一人多号识别。每会话只报一次。
+ * 登录后静默上报:
+ * - did:随机设备 ID(首次访问生成、localStorage 持久化)——同浏览器多账号
+ *   必然相同、不同设备不可能碰撞,是自动封禁的唯一依据
+ * - fp:硬件指纹(canvas/WebGL/屏幕/时区等)——同型号设备会重复,仅人工参考
  */
 export default function Fingerprint() {
   useEffect(() => {
@@ -13,19 +15,23 @@ export default function Fingerprint() {
 
     (async () => {
       try {
+        let did = localStorage.getItem("ark_did");
+        if (!did) {
+          did = crypto.randomUUID();
+          localStorage.setItem("ark_did", did);
+        }
         const fp = await computeFingerprint();
         if (cancelled) return;
         const res = await fetch("/api/fingerprint", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fp }),
+          body: JSON.stringify({ fp, did }),
         });
         if (res.ok || res.status === 403) {
           sessionStorage.setItem("ark_fp_sent", "1");
         }
         if (res.status === 403 && !cancelled) {
-          // 被风控自动封禁:提示并送回首页
-          alert("检测到同设备多账号,该账号已被自动封禁。如有疑问请联系站长。");
+          alert("检测到同一浏览器关联多个账号,该账号已被自动封禁。如有疑问请联系站长。");
           location.href = "/denied?reason=banned";
         }
       } catch {

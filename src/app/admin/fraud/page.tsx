@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { auditLogs, subPulls, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import StatusChip from "@/components/admin/StatusChip";
-import { fingerprintClusters } from "@/lib/fingerprint";
+import { deviceIdClusters, fingerprintClusters } from "@/lib/fingerprint";
 import { formatDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function AdminFraudPage() {
   const since7d = new Date(Date.now() - 7 * 86_400_000);
 
-  const [clusters, recentPulls, tokenSpread, autoBans] = await Promise.all([
+  const [dClusters, hwClusters, recentPulls, tokenSpread, autoBans] = await Promise.all([
+    deviceIdClusters(),
     fingerprintClusters(),
     db
       .select({
@@ -38,7 +39,7 @@ export default async function AdminFraudPage() {
     db
       .select()
       .from(auditLogs)
-      .where(sql`${auditLogs.action} = 'auto_ban_fingerprint'`)
+      .where(sql`${auditLogs.action} in ('auto_ban_fingerprint','auto_ban_device')`)
       .orderBy(desc(auditLogs.createdAt))
       .limit(20),
   ]);
@@ -51,14 +52,43 @@ export default async function AdminFraudPage() {
 
       <section>
         <h2 className="mb-3 font-semibold">
-          指纹簇(同设备指纹 ≥2 账号,达到阈值自动封禁)
+          浏览器簇(同随机设备 ID ≥2 账号 —— 强信号,自动封禁的唯一依据)
         </h2>
-        {clusters.length === 0 ? (
-          <p className="text-sm text-neutral-500">暂无多账号指纹簇。</p>
+        {dClusters.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
+            暂无。同浏览器多账号必然命中;不同设备不可能碰撞。
+          </p>
         ) : (
           <AdminTable
-            head={["指纹", "账号数", "账号", "最近出现"]}
-            rows={clusters.map((c) => [
+            head={["设备 ID", "账号数", "账号", "最近出现"]}
+            rows={dClusters.map((c) => [
+              <span key="f" className="font-mono text-xs">
+                {c.key.slice(0, 13)}…
+              </span>,
+              c.users.length,
+              <span key="u" className="flex flex-wrap gap-1">
+                {c.users.map((u) => (
+                  <StatusChip key={u.id} tone={u.status === "banned" ? "red" : "neutral"}>
+                    {u.username}
+                  </StatusChip>
+                ))}
+              </span>,
+              formatDate(c.lastSeenAt),
+            ])}
+          />
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 font-semibold">
+          硬件指纹簇(弱信号,仅供参考 —— 同型号设备会重复,勿据此封人)
+        </h2>
+        {hwClusters.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--ark-muted)" }}>暂无。</p>
+        ) : (
+          <AdminTable
+            head={["硬件指纹", "账号数", "账号", "最近出现"]}
+            rows={hwClusters.map((c) => [
               <span key="f" className="font-mono text-xs">
                 {c.fpHash.slice(0, 16)}…
               </span>,

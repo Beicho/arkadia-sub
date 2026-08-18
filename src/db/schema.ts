@@ -126,6 +126,9 @@ export const deviceFingerprints = pgTable(
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull(),
     fpHash: text("fp_hash").notNull(),
+    // 随机设备 ID(localStorage 持久化):同浏览器多账号必然相同,
+    // 不同设备不可能碰撞;硬件指纹(同型号设备会重复)仅作弱信号展示
+    deviceId: text("device_id"),
     ip: text("ip"),
     ua: text("ua"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
@@ -138,6 +141,7 @@ export const deviceFingerprints = pgTable(
   (t) => [
     uniqueIndex("device_fp_user_hash_uq").on(t.userId, t.fpHash),
     index("device_fp_hash_idx").on(t.fpHash),
+    index("device_fp_devid_idx").on(t.deviceId),
   ],
 );
 

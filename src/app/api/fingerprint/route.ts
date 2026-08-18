@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   fp: z.string().regex(/^[a-f0-9]{16,64}$/),
+  did: z
+    .string()
+    .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -29,6 +33,7 @@ export async function POST(req: Request) {
   const banned = await recordFingerprint(
     user.id,
     parsed.data.fp,
+    parsed.data.did ?? null,
     ip,
     req.headers.get("user-agent")?.slice(0, 300) ?? "",
   );
