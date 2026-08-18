@@ -177,6 +177,83 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, message: "测活已启动(100 并发)" });
   }
 
+  // ===== 创建纯 SOCKS5 批次(不依赖已有节点批次,可独立当主代理) =====
+  if (action === "create_batch") {
+    const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const force = body.force === true;
+    const okRows = await db
+      .select()
+      .from(socksPool)
+      .where(eq(socksPool.status, "ok"))
+      .orderBy(asc(socksPool.latencyMs))
+      .limit(2000);
+    if (okRows.length === 0) {
+      return Response.json({ error: "没有可用代理,先执行测活" }, { status: 422 });
+    }
+
+    // 防手滑:当日已有非 SOCKS5 激活批次时,确认后才替换(纯 SOCKS5 批次会成为唯一下发批次)
+    if (!force) {
+      const [activeBatch] = await db
+        .select()
+        .from(nodeBatches)
+        .where(eq(nodeBatches.isActive, true))
+        .orderBy(desc(nodeBatches.createdAt))
+        .limit(1);
+      const hasNonSocks =
+        activeBatch &&
+        ((activeBatch.nodes as string[]) ?? []).some(
+          (n) => !n.toLowerCase().startsWith("socks5://"),
+        );
+      if (hasNonSocks) {
+        return Response.json(
+          {
+            error:
+              "当前激活批次包含非 SOCKS5 节点,创建纯 SOCKS5 批次将替换整个下发批次(原节点不再下发,批次日期为今天)。确认继续?",
+            needForce: true,
+          },
+          { status: 422 },
+        );
+      }
+    }
+
+    const best = pickBest(
+      okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
+      count,
+    );
+    if (best.length === 0) {
+      return Response.json({ error: "选取失败" }, { status: 422 });
+    }
+
+    const socksUris = best.map(
+      (b) => `socks5://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`,
+    );
+    const batchDate = shanghaiToday();
+    const [created] = await db
+      .insert(nodeBatches)
+      .values({
+        title: `SOCKS5 批次 ${batchDate} ×${best.length}`,
+        nodes: socksUris,
+        batchDate,
+        nodeCount: socksUris.length,
+        isActive: false,
+        createdBy: admin.id,
+      })
+      .returning({ id: nodeBatches.id });
+    await db.transaction(async (tx) => {
+      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
+      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+    });
+    await audit(admin.id, "socks_create_batch", `batch:${created.id}`, {
+      count: best.length,
+      batchDate,
+    });
+    return Response.json({
+      ok: true,
+      message: `已创建纯 SOCKS5 批次(${best.length} 个,日期 ${batchDate})并激活`,
+      added: best.map((b) => socksNodeName(b.entry)),
+    });
+  }
+
   // ===== 清空代理池 =====
   if (action === "clear_pool") {
     await db.delete(socksPool);

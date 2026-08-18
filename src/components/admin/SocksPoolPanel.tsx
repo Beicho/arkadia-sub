@@ -151,6 +151,42 @@ export default function SocksPoolPanel() {
     }
   };
 
+  const doSocksBatch = async (force = false) => {
+    if ((status?.summary.ok ?? 0) === 0) return setErr("没有可用代理,先测活");
+    if (
+      !confirm(
+        force
+          ? `⚠ 确认:将创建纯 SOCKS5 批次(30 个)替换当前全部下发内容。`
+          : `创建纯 SOCKS5 批次(30 个可用代理)作为唯一下发批次?适合把 SOCKS5 当主代理用。`,
+      )
+    )
+      return;
+    setBusy("socksbatch");
+    setErr(null);
+    setMsg(null);
+    try {
+      const r = await apiPost<{ message: string; added: string[] }>(
+        "/api/admin/socks",
+        { action: "create_batch", count: 30, force },
+      );
+      setMsg(`${r.message}\n节点:\n${r.added.join("\n")}`);
+      await refresh();
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "操作失败";
+      if (m.includes("确认继续")) {
+        if (confirm(`${m}\n\n(二次确认,将替换全部下发内容)`)) {
+          setBusy(null);
+          return void doSocksBatch(true);
+        }
+        setErr("已取消(未替换)");
+      } else {
+        setErr(m);
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const doReplace = async () => {
     const existing = status?.mergedToday ?? 0;
     if ((status?.summary.ok ?? 0) === 0) return setErr("没有可用代理");
@@ -337,6 +373,14 @@ export default function SocksPoolPanel() {
             onClick={() => doMerge()}
           >
             挑 30 个并入今日批次
+          </Button>
+          <Button
+            variant="secondary"
+            loading={busy === "socksbatch"}
+            disabled={run?.running || (status?.summary.ok ?? 0) === 0}
+            onClick={() => doSocksBatch()}
+          >
+            创建纯 SOCKS5 批次
           </Button>
           <Button
             variant="secondary"
