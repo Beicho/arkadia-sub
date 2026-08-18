@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const createSchema = z.object({
   kind: z.literal("gift"),
-  count: z.number().int().min(1).max(50).optional(),
+  count: z.number().int().min(1).max(100).optional(),
 });
 
 /** 手工建 gift 注册码(补偿/赠送,不占库存) */
@@ -43,6 +43,26 @@ export async function POST(req: Request) {
 
   await audit(admin.id, "code_gift", `count=${count}`, { count, codes: created });
   return Response.json({ ok: true, codes: created });
+}
+
+/** 导出全部未使用 gift 码(txt 纯文本,一行一个) */
+export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "无权限" }, { status: 403 });
+  const rows = await db
+    .select({ code: redeemCodes.code })
+    .from(redeemCodes)
+    .where(eq(redeemCodes.status, "issued"));
+  const body =
+    rows.length === 0
+      ? "(没有未使用的注册码)"
+      : rows.map((r) => r.code).join("\n");
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="arkadia-codes.txt"',
+    },
+  });
 }
 
 const patchSchema = z.object({

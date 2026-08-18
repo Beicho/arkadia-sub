@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { redeemCodes, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
-import { GiftCodeButton, VoidCodeButton } from "@/components/admin/CodesActions";
+import { ExportCodesButton, GiftCodeButton, VoidCodeButton } from "@/components/admin/CodesActions";
 import StatCards from "@/components/admin/StatCards";
 import StatusChip from "@/components/admin/StatusChip";
 import StockPanel from "@/components/admin/StockPanel";
@@ -65,7 +65,10 @@ export default async function AdminCodesPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">发码记录(最近 200)</h2>
-          <GiftCodeButton />
+          <div className="flex gap-2">
+            <GiftCodeButton />
+            <ExportCodesButton />
+          </div>
         </div>
         <AdminTable
           head={["注册码", "类型", "状态", "可见", "兑换人", "兑换时间", "创建", "操作"]}

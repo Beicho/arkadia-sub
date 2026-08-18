@@ -2,6 +2,7 @@ import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches, subPulls, users } from "@/db/schema";
 import { buildClashYaml } from "@/lib/clash";
+import { buildSingboxConfig } from "@/lib/singbox";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
 import {
   buildRawContent,
@@ -156,7 +157,30 @@ export async function GET(
   const wantsClash =
     target === "clash" ||
     (target !== "v2ray" &&
+      target !== "singbox" &&
       /clash|mihomo|flclash|stash|clashverge|clash-verge|clashmeta/.test(ua));
+  const wantsSingbox =
+    target === "singbox" ||
+    (target !== "v2ray" &&
+      target !== "clash" &&
+      /sing-box|singbox|sfi|sfa|sfm|hiddify/.test(ua));
+
+  if (wantsSingbox) {
+    const json = buildSingboxConfig(nodes);
+    if (json) {
+      return new Response(json, {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="Arkadia_${batch.batchDate}.json"`,
+          "Cache-Control": "no-store",
+          "Subscription-Userinfo": userinfo,
+          "Profile-Update-Interval": "24",
+          "Profile-Title": `base64:${title}`,
+        },
+      });
+    }
+    // 全都转不了 → 退回 clash/base64
+  }
 
   if (wantsClash) {
     const yaml = buildClashYaml(nodes);

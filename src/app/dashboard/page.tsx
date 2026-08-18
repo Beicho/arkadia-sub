@@ -1,8 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db/client";
-import { nodeBatches, orders } from "@/db/schema";
-import { Badge, LayerCard, LinkButton } from "@/components/kumo";
+import { announcements, nodeBatches, orders } from "@/db/schema";
+import { Badge, Banner, LayerCard, LinkButton } from "@/components/kumo";
 import {
   GlobeHemisphereWestIcon,
   ClockIcon,
@@ -38,7 +38,7 @@ export default async function DashboardPage({
     await reconcileOrder(orderNo).catch(() => undefined);
   }
 
-  const [s, myOrders, activeBatch] = await Promise.all([
+  const [s, myOrders, activeBatch, activeAnnouncements] = await Promise.all([
     getSettings(),
     db
       .select()
@@ -51,6 +51,12 @@ export default async function DashboardPage({
       .from(nodeBatches)
       .where(eq(nodeBatches.isActive, true))
       .limit(1),
+    db
+      .select()
+      .from(announcements)
+      .where(eq(announcements.isActive, true))
+      .orderBy(desc(announcements.createdAt))
+      .limit(3),
   ]);
 
   const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
@@ -64,6 +70,21 @@ export default async function DashboardPage({
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
       <Fingerprint />
+
+      {activeAnnouncements.length > 0 ? (
+        <div className="mb-4 space-y-2">
+          {activeAnnouncements.map((a) => (
+            <Banner
+              key={a.id}
+              variant={
+                a.level === "alert" ? "error" : a.level === "warning" ? "alert" : "secondary"
+              }
+              title="站长公告"
+              description={a.content}
+            />
+          ))}
+        </div>
+      ) : null}
 
       <header className="ark-float-nav mb-8 flex items-center justify-between px-5 py-3">
         <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>

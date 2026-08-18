@@ -104,6 +104,22 @@ export const nodeBatches = pgTable("node_batches", {
     .defaultNow(),
 });
 
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: serial("id").primaryKey(),
+    content: text("content").notNull(),
+    // info | warning | alert
+    level: text("level").notNull().default("info"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: integer("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("announcements_active_idx").on(t.isActive, t.createdAt)],
+);
+
 export const subPulls = pgTable(
   "sub_pulls",
   {
