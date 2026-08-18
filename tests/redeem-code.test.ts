@@ -29,7 +29,7 @@ describe("outTradeNo", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 100; i++) {
       const no = generateOutTradeNo();
-      expect(no).toMatch(/^ARK\d{14}[2-9A-HJ-NP-Z]{6}$/);
+      expect(no).toMatch(/^ARK\d{8}[2-9A-HJ-NP-Z]{6}$/);
       expect(seen.has(no)).toBe(false);
       seen.add(no);
     }

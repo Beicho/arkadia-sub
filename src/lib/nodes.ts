@@ -4,11 +4,29 @@
  * 由 batch_date + 序号确定性生成,同批次对所有人、多次拉取保持稳定。
  */
 
-const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
+/** 常见代理协议白名单;https:// 等普通网址不算节点 */
+const NODE_PROTOCOLS = new Set([
+  "vless",
+  "vmess",
+  "ss",
+  "ssr",
+  "trojan",
+  "hysteria",
+  "hysteria2",
+  "hy2",
+  "tuic",
+  "socks",
+  "snell",
+  "juicity",
+  "wireguard",
+  "ssh",
+]);
 
-/** 识别节点行(vless/vmess/ss/trojan/hysteria2/hysteria/tuic 等) */
+/** 识别节点行(白名单协议 + :// 开头) */
 export function isNodeLine(line: string): boolean {
-  return SCHEME_RE.test(line);
+  const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(line);
+  if (!m) return false;
+  return NODE_PROTOCOLS.has(m[1].toLowerCase());
 }
 
 /** 清理粘贴的原始文本:一行一个节点;支持整段 base64 自动解码;去空行与重复 */
