@@ -62,13 +62,6 @@ export async function GET(
   const freeUntil =
     user.paidUntil && user.paidUntil.getTime() > Date.now() ? user.paidUntil : null;
 
-  if (!lockedMode && !freeUntil && user.updateCredits <= 0) {
-    return textResponse(
-      "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
-      402,
-    );
-  }
-
   const [activeBatch] = await db
     .select()
     .from(nodeBatches)
@@ -79,7 +72,7 @@ export async function GET(
     return textResponse("今日节点尚未更新,请稍后再来", 503);
   }
 
-  // 批次锁定:用户锁定了已付费的批次,站长更新不扣费。
+  // 批次锁定(先于一切计费判定):用户锁定了已付费的批次,站长更新不扣费。
   // 下发用户已拉取的那一批,跳过额度判定与扣减;解锁后恢复正常。
   let batch = activeBatch;
   let lockedMode = false;
@@ -98,6 +91,14 @@ export async function GET(
       lockedMode = true;
     }
     // 锁定批次不存在(理论上不删):回落正常逻辑
+  }
+
+  // 额度判定:仅非锁定模式。锁定模式批次已付费,无论额度状态都放行。
+  if (!lockedMode && !freeUntil && user.updateCredits <= 0) {
+    return textResponse(
+      "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
+      402,
+    );
   }
 
   const nodes = batch.nodes as string[];
