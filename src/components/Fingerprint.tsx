@@ -45,7 +45,7 @@ async function computeFingerprint(): Promise<string> {
   const parts: string[] = [
     navigator.userAgent,
     navigator.language,
-    (navigator as { languages?: string[] }).languages?.join(",") ?? "",
+    navigator.languages.join(","),
     String(screen.width) + "x" + String(screen.height) + "x" + String(screen.colorDepth),
     String(new Date().getTimezoneOffset()),
     Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
