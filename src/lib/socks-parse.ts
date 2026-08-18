@@ -54,24 +54,30 @@ export function parseSocksLine(raw: string): SocksEntry | null {
   const port = Number(portStr);
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
 
-  // 标签 [xxx]
-  const tags: string[] = [];
-  let restNoTags = rest;
-  restNoTags = restNoTags.replace(/\[([^\[\]]+)\]/g, (_, tag: string) => {
-    tags.push(tag);
-    return " ";
-  });
-
-  // 国家 + 地区 [...](去掉标签后第一个 [..] 组)
+  // 1. 地区 = 「入库:」前的最后一个 [..] 组(先取走,避免被当成标签)
   let country: string | null = null;
   let region: string | null = null;
-  const rm = /^\s*([^\[\]\s]+)\s+\[([^\[\]]+)\]/.exec(restNoTags);
+  let rest2 = rest;
+  const rm = /\[([^\[\]]+)\]\s*入库:/.exec(rest);
   if (rm) {
-    country = rm[1];
-    region = rm[2].trim() || null;
+    region = rm[1].trim() || null;
+    rest2 = rest.slice(0, rm.index) + rest.slice(rm.index + rm[0].length);
   }
 
-  // 风险分
+  // 2. 标签 = 剩余部分开头的连续 [..] 组
+  const tags: string[] = [];
+  let tagMatch: RegExpExecArray | null;
+  const tagRe = /^\s*\[([^\[\]]+)\]/;
+  while ((tagMatch = tagRe.exec(rest2)) !== null) {
+    tags.push(tagMatch[1]);
+    rest2 = rest2.slice(tagMatch.index + tagMatch[0].length);
+  }
+
+  // 3. 国家 = 去掉标签和地区后的第一个词
+  const cm = /^\s*([^\s\[\]]+)/.exec(rest2);
+  if (cm) country = cm[1];
+
+  // 4. 风险分
   let riskScore: number | null = null;
   for (const tag of tags) {
     const r = /^高风险(\d{1,3})$/.exec(tag);
