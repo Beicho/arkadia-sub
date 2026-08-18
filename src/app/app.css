@@ -1,0 +1,35 @@
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+@import "@cloudflare/kumo/styles/tailwind";
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+/* ===== 管理后台侧栏响应式(适配 Kumo Sidebar 渲染的 aside) ===== */
+@media (min-width: 1024px) {
+  body:has(aside[data-sidebar-open="true"]) .admin-main {
+    margin-left: 304px;
+  }
+  body:has(aside[data-sidebar-open="false"]) .admin-main {
+    margin-left: 48px;
+  }
+}
+
+@media (max-width: 1023px) {
+  aside[data-sidebar-open="true"] {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+  }
+}
+
+/* 订阅链接等长文本换行 */
+.break-anywhere {
+  overflow-wrap: anywhere;
+}
