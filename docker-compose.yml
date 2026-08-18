@@ -29,6 +29,7 @@ services:
       LDC_PID: ${LDC_PID:-}
       LDC_KEY: ${LDC_KEY:-}
       LDC_EPAY_BASE: ${LDC_EPAY_BASE:-https://credit.linux.do/epay}
+      LDC_ORDER_EXPIRE_MINUTES: ${LDC_ORDER_EXPIRE_MINUTES:-5}
       DEV_FAKE_LOGIN: ${DEV_FAKE_LOGIN:-0}
     ports:
       - "127.0.0.1:3090:3000"

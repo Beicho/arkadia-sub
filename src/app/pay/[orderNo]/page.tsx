@@ -77,6 +77,9 @@ export default async function PayPage({
         <div className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
           {order.outTradeNo}
         </div>
+        <div className="text-xs" style={{ color: "var(--ark-amber)" }}>
+          请在 5 分钟内完成支付,超时订单自动关闭(库存回补,可重新下单)
+        </div>
         <div className="ark-display text-3xl font-extrabold" style={{ color: "var(--ark-accent)" }}>
           {Number(order.amount).toFixed(2)}
           <span className="ml-1 text-sm font-normal" style={{ color: "var(--ark-muted)" }}>LDC</span>

@@ -7,7 +7,8 @@ export function startBackgroundJobs() {
   if (started) return;
   started = true;
 
-  const RECONCILE_INTERVAL_MS = 5 * 60_000;
+  // 订单超时 5 分钟关闭 → 每分钟扫一次,超时后最迟 1 分钟内关闭
+  const RECONCILE_INTERVAL_MS = 60_000;
 
   const tick = async () => {
     try {
@@ -17,7 +18,7 @@ export function startBackgroundJobs() {
     }
   };
 
-  // 启动后延迟 30s 再跑第一轮,避开冷启动
-  setTimeout(tick, 30_000).unref?.();
+  // 启动后延迟 20s 再跑第一轮,避开冷启动
+  setTimeout(tick, 20_000).unref?.();
   setInterval(tick, RECONCILE_INTERVAL_MS).unref?.();
 }
