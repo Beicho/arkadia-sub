@@ -8,6 +8,11 @@ import {
   buildSubscriptionPayload,
 } from "@/lib/nodes";
 
+/** 订阅标题:客户端列表里显示"这是几号的节点"(profile-title: base64: 协议) */
+function profileTitle(batchDate: string): string {
+  return Buffer.from(`Arkadia ${batchDate} 节点`, "utf8").toString("base64");
+}
+
 export const dynamic = "force-dynamic";
 
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -123,6 +128,7 @@ export async function GET(
     // 统计失败不影响下发
   }
 
+  const title = profileTitle(batch.batchDate);
   const url = new URL(req.url);
   const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
   // 格式协商:?target= 显式指定;否则按 User-Agent:Clash 系 → YAML,
@@ -134,7 +140,7 @@ export async function GET(
       /clash|mihomo|flclash|stash|clashverge|clash-verge|clashmeta/.test(ua));
 
   if (wantsClash) {
-    const yaml = buildClashYaml(nodes, batch.batchDate);
+    const yaml = buildClashYaml(nodes);
     if (yaml) {
       return new Response(yaml, {
         headers: {
@@ -142,6 +148,7 @@ export async function GET(
           "Cache-Control": "no-store",
           "Subscription-Userinfo": userinfo,
           "Profile-Update-Interval": "24",
+          "Profile-Title": `base64:${title}`,
         },
       });
     }
@@ -149,7 +156,7 @@ export async function GET(
   }
 
   if (url.searchParams.get("raw") === "1") {
-    const content = buildRawContent(nodes, batch.batchDate);
+    const content = buildRawContent(nodes);
     const filename = `arkadia-${batch.batchDate}.txt`;
     return new Response(content, {
       headers: {
@@ -161,13 +168,14 @@ export async function GET(
     });
   }
 
-  const payload = buildSubscriptionPayload(nodes, batch.batchDate);
+  const payload = buildSubscriptionPayload(nodes);
   return new Response(payload, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "Subscription-Userinfo": userinfo,
       "Profile-Update-Interval": "24",
+      "Profile-Title": `base64:${title}`,
     },
   });
 }

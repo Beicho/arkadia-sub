@@ -1,7 +1,7 @@
 /**
- * 节点解析与展示名重写。
- * 下发时把每个节点的备注统一改写为 `Arkadia-{YYYYMMDD}-{序号}`,
- * 由 batch_date + 序号确定性生成,同批次对所有人、多次拉取保持稳定。
+ * 节点解析。
+ * 节点备注(名称)由站长在后台配置,下发时原样保留,不做任何改写;
+ * 批次日期信息放在订阅标题(profile-title 头)与下载文件名上。
  */
 
 /** 常见代理协议白名单;https:// 等普通网址不算节点 */
@@ -65,62 +65,17 @@ export function tryDecodeBase64(s: string): string | null {
   }
 }
 
-/** 批次展示名:Arkadia-20260818-01 */
-export function nodeDisplayName(batchDate: string, index: number): string {
-  return `Arkadia-${batchDate.replace(/-/g, "")}-${String(index + 1).padStart(2, "0")}`;
-}
-
-/** 把单个节点的备注重写为 name;不认识的格式尽量按 fragment 处理 */
-export function rewriteNodeName(uri: string, name: string): string {
-  const lower = uri.toLowerCase();
-  if (lower.startsWith("vmess://")) {
-    return rewriteVmess(uri, name);
-  }
-  const hashIdx = uri.indexOf("#");
-  if (hashIdx >= 0) {
-    return `${uri.slice(0, hashIdx)}#${encodeURIComponent(name)}`;
-  }
-  // 没有备注就补一个
-  return `${uri}#${encodeURIComponent(name)}`;
-}
-
-function rewriteVmess(uri: string, name: string): string {
-  const b64 = uri.slice("vmess://".length);
-  try {
-    const json = JSON.parse(tryDecodeBase64(b64) ?? "{}") as Record<
-      string,
-      unknown
-    >;
-    json.ps = name;
-    return `vmess://${Buffer.from(JSON.stringify(json), "utf8").toString("base64")}`;
-  } catch {
-    // 解析失败:原样返回,后续管理端能看到原始内容
-    return uri;
-  }
-}
-
-/** 生成下发内容(base64,换行拼接) */
-export function buildSubscriptionPayload(
-  nodes: string[],
-  batchDate: string,
-): string {
-  const content = nodes
-    .map((n, i) => rewriteNodeName(n, nodeDisplayName(batchDate, i)))
-    .join("\n");
-  return Buffer.from(content, "utf8").toString("base64");
+/** 生成下发内容:原始节点原样拼接后 base64(v2rayN 订阅格式) */
+export function buildSubscriptionPayload(nodes: string[]): string {
+  return Buffer.from(nodes.join("\n"), "utf8").toString("base64");
 }
 
 /** 原始明文内容(?raw=1 下载用) */
-export function buildRawContent(
-  nodes: string[],
-  batchDate: string,
-): string {
-  return nodes
-    .map((n, i) => rewriteNodeName(n, nodeDisplayName(batchDate, i)))
-    .join("\n");
+export function buildRawContent(nodes: string[]): string {
+  return nodes.join("\n");
 }
 
-/** 解析节点备注(管理端展示用) */
+/** 解析节点备注(下发/转换时保留的节点名) */
 export function readNodeName(uri: string): string {
   const lower = uri.toLowerCase();
   if (lower.startsWith("vmess://")) {
@@ -128,7 +83,7 @@ export function readNodeName(uri: string): string {
       const json = JSON.parse(
         tryDecodeBase64(uri.slice("vmess://".length)) ?? "{}",
       ) as { ps?: string };
-      return json.ps ?? "(vmess 无备注)";
+      return json.ps?.trim() || "(vmess 无备注)";
     } catch {
       return "(vmess 解析失败)";
     }
@@ -136,9 +91,11 @@ export function readNodeName(uri: string): string {
   const hashIdx = uri.indexOf("#");
   if (hashIdx >= 0 && hashIdx < uri.length - 1) {
     try {
-      return decodeURIComponent(uri.slice(hashIdx + 1));
+      const name = decodeURIComponent(uri.slice(hashIdx + 1)).trim();
+      if (name) return name;
     } catch {
-      return uri.slice(hashIdx + 1);
+      const name = uri.slice(hashIdx + 1).trim();
+      if (name) return name;
     }
   }
   return "(无备注)";

@@ -6,7 +6,7 @@
  * 支持:vless(reality/tls/ws)、hysteria2、vmess、ss、trojan。
  */
 
-import { nodeDisplayName, tryDecodeBase64 } from "./nodes";
+import { readNodeName, tryDecodeBase64 } from "./nodes";
 
 type YamlValue = string | number | boolean | YamlPairs;
 type YamlPairs = Array<[string, YamlValue]>;
@@ -273,15 +273,25 @@ function trojanToClash(uri: string, name: string): YamlPairs | null {
   return proxy;
 }
 
-/** 生成完整 Clash YAML 配置;无可转换节点时返回 null */
+/** 生成完整 Clash YAML 配置;节点名保留站长配置的原始备注;无可转换节点时返回 null */
 export function buildClashYaml(
   nodes: string[],
-  batchDate: string,
   groupName = "Arkadia",
 ): string | null {
   const proxies: YamlPairs[] = [];
-  for (let i = 0; i < nodes.length; i++) {
-    const p = uriToClashProxy(nodes[i], nodeDisplayName(batchDate, i));
+  const usedNames = new Set<string>();
+  let fallback = 0;
+  for (const uri of nodes) {
+    // Clash 要求代理名唯一:重名自动加序号
+    let name = readNodeName(uri);
+    if (name.startsWith("(")) name = `节点 ${++fallback}`;
+    if (usedNames.has(name)) {
+      let n = 2;
+      while (usedNames.has(`${name} ${n}`)) n++;
+      name = `${name} ${n}`;
+    }
+    usedNames.add(name);
+    const p = uriToClashProxy(uri, name);
     if (p) proxies.push(p);
   }
   if (proxies.length === 0) return null;
@@ -298,7 +308,8 @@ export function buildClashYaml(
   lines.push(`      - "DIRECT"`);
 
   lines.push("rules:");
-  lines.push(`  - MATCH,${JSON.stringify(groupName)}`);
+  // Clash 规则语法:MATCH,<组名>,组名不加引号
+  lines.push(`  - MATCH,${groupName}`);
 
   return lines.join("\n") + "\n";
 }

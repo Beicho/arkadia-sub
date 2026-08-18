@@ -7,8 +7,8 @@ const VLESS_REALITY =
 const VLESS_WS =
   "vless://11111111-2222-3333-4444-555555555555@5.6.7.8:443?encryption=none&security=tls&sni=ws.example.com&type=ws&host=ws.example.com&path=%2Fpath#ws";
 const HY2 =
-  "hysteria2://fakepassword@9.9.9.9:50160?sni=hy.example.com&insecure=0&allowInsecure=0#HY2";
-const TROJAN = "trojan://fakepass@2.3.4.5:443?sni=t.example.com#tj";
+  "hysteria2://fakepassword@9.9.9.9:50160?sni=hy.example.com&insecure=0&allowInsecure=0#HY2-%E6%96%B0%E5%8A%A0%E5%9D%A1";
+const TROJAN = "trojan://fakepass@2.3.4.5:443?sni=t.example.com#trojan-node";
 
 function makeVmess(): string {
   const json = JSON.stringify({
@@ -72,36 +72,44 @@ describe("uriToClashProxy", () => {
 });
 
 describe("buildClashYaml", () => {
-  it("生成完整配置:节点命名 Arkadia-日期-序号 + 选择组 + MATCH 规则", () => {
-    const yaml = buildClashYaml(
-      [VLESS_REALITY, HY2, TROJAN],
-      "2026-08-18",
-    )!;
+  it("节点名 = 站长配置的原始备注(解码后),不改写", () => {
+    const yaml = buildClashYaml([VLESS_REALITY, HY2, makeVmess()])!;
+    expect(yaml).toContain('name: "测试"');
+    expect(yaml).toContain('name: "HY2-新加坡"');
+    expect(yaml).toContain('name: "旧名"');
+    expect(yaml).not.toContain("Arkadia-20");
+  });
+
+  it("重名节点自动加序号保证唯一", () => {
+    const yaml = buildClashYaml([TROJAN, `${TROJAN}?x=1`])!;
+    expect(yaml).toContain('name: "trojan-node"');
+    expect(yaml).toContain('name: "trojan-node 2"');
+  });
+
+  it("完整配置:选择组 + MATCH 规则(组名不带引号)", () => {
+    const yaml = buildClashYaml([VLESS_REALITY, HY2, TROJAN])!;
     expect(yaml).toContain("proxies:");
-    expect(yaml).toContain('"Arkadia-20260818-01"');
-    expect(yaml).toContain('"Arkadia-20260818-02"');
-    expect(yaml).toContain('"Arkadia-20260818-03"');
     expect(yaml).toContain("proxy-groups:");
     expect(yaml).toContain("type: select");
-    expect(yaml).toContain("- \"DIRECT\"");
+    expect(yaml).toContain('- "DIRECT"');
     expect(yaml).toContain("rules:");
-    expect(yaml).toContain('MATCH,"Arkadia"');
+    expect(yaml).toContain("  - MATCH,Arkadia");
+    expect(yaml).not.toContain('MATCH,"Arkadia"');
   });
 
   it("首个节点字段使用列表缩进(- name:)", () => {
-    const yaml = buildClashYaml([VLESS_REALITY], "2026-08-18")!;
-    expect(yaml).toMatch(/  - name: "Arkadia-20260818-01"\n    type: "vless"/);
+    const yaml = buildClashYaml([VLESS_REALITY])!;
+    expect(yaml).toMatch(/  - name: "测试"\n    type: "vless"/);
   });
 
   it("空列表返回 null", () => {
-    expect(buildClashYaml([], "2026-08-18")).toBeNull();
-    expect(buildClashYaml(["tuic://x@y:1"], "2026-08-18")).toBeNull();
+    expect(buildClashYaml([])).toBeNull();
+    expect(buildClashYaml(["tuic://x@y:1"])).toBeNull();
   });
 
   it("字符串值含特殊字符时安全转义", () => {
-    const evil =
-      "hysteria2://pass:word@9.9.9.9:443?sni=a#x";
-    const yaml = buildClashYaml([evil], "2026-08-18");
+    const evil = "hysteria2://pass:word@9.9.9.9:443?sni=a#x";
+    const yaml = buildClashYaml([evil]);
     expect(yaml).toContain('"pass:word"');
   });
 });
