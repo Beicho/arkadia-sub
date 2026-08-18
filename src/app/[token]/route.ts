@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches, subPulls, users } from "@/db/schema";
 import { buildClashYaml } from "@/lib/clash";
@@ -84,6 +84,7 @@ export async function GET(
   )}`;
 
   // 额度模式:拉到"新日期"的批次才扣 1 额度。
+  // 日期守卫放进原子 UPDATE 的 WHERE(OR isNull / NE),杜绝并发双拉双扣;
   // 同一 batchDate 内站长补传/福利加量(如 SOCKS5),用户刷新不重复扣。
   const dateChanged = user.lastPulledBatchDate !== batch.batchDate;
   if (!freeUntil) {
@@ -99,14 +100,26 @@ export async function GET(
           and(
             eq(users.id, user.id),
             gt(users.updateCredits, 0),
+            or(
+              isNull(users.lastPulledBatchDate),
+              ne(users.lastPulledBatchDate, batch.batchDate),
+            ),
           ),
         )
         .returning({ id: users.id });
       if (consumed.length === 0) {
-        return textResponse(
-          "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
-          402,
-        );
+        // 没扣到:并发孪生请求已扣过(直接放行)或真没额度(回读确认)
+        const [fresh] = await db
+          .select({ credits: users.updateCredits, lastDate: users.lastPulledBatchDate })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .limit(1);
+        if (!fresh || fresh.lastDate !== batch.batchDate) {
+          return textResponse(
+            "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
+            402,
+          );
+        }
       }
     } else if (batch.id !== user.lastPulledBatchId) {
       await db

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, redeemCodes } from "@/db/schema";
+import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { reconcileOrder } from "@/lib/reconcile";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +9,16 @@ export const dynamic = "force-dynamic";
 /**
  * 查询订单状态(return 页轮询用)。
  * pending 时顺手触发一次对账。
+ * 注意:响应含已付订单的注册码,必须限速防单号枚举。
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ outTradeNo: string }> },
 ) {
+  const ip = clientIp(req);
+  const rl = rateLimit(`order-status:${ip}`, 10, 60_000);
+  if (!rl.ok) return tooMany(rl.retryAfterSec);
+
   const { outTradeNo } = await ctx.params;
 
   let [order] = await db
