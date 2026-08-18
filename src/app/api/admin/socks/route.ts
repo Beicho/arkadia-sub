@@ -177,6 +177,114 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, message: "测活已启动(100 并发)" });
   }
 
+  // ===== 清空代理池 =====
+  if (action === "clear_pool") {
+    await db.delete(socksPool);
+    await audit(admin.id, "socks_clear_pool");
+    return Response.json({ ok: true, message: "代理池已清空(不影响已并入批次的节点)" });
+  }
+
+  // ===== 从今日批次移除全部 SOCKS5(撤福利) =====
+  if (action === "remove_socks") {
+    const [current] = await db
+      .select()
+      .from(nodeBatches)
+      .where(eq(nodeBatches.isActive, true))
+      .orderBy(desc(nodeBatches.createdAt))
+      .limit(1);
+    if (!current) {
+      return Response.json({ error: "没有激活批次" }, { status: 422 });
+    }
+    const nodes = (current.nodes as string[]) ?? [];
+    const kept = nodes.filter((n) => !n.toLowerCase().startsWith("socks5://"));
+    const removed = nodes.length - kept.length;
+    if (removed === 0) {
+      return Response.json({ error: "今日批次没有 SOCKS5 节点" }, { status: 422 });
+    }
+    const [created] = await db
+      .insert(nodeBatches)
+      .values({
+        title: `${current.title}(移除 SOCKS5 ×${removed})`,
+        nodes: kept,
+        batchDate: current.batchDate,
+        nodeCount: kept.length,
+        isActive: false,
+        createdBy: admin.id,
+      })
+      .returning({ id: nodeBatches.id });
+    await db.transaction(async (tx) => {
+      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
+      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+    });
+    await audit(admin.id, "socks_remove_from_batch", `batch:${created.id}`, { removed });
+    return Response.json({
+      ok: true,
+      message: `已移除 ${removed} 个 SOCKS5,批次剩余 ${kept.length} 节点(同日期,用户刷新不扣额度)`,
+    });
+  }
+
+  // ===== 替换今日 SOCKS5:移除旧的,重新挑 30 个 =====
+  if (action === "replace_merge") {
+    const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const okRows = await db
+      .select()
+      .from(socksPool)
+      .where(eq(socksPool.status, "ok"))
+      .orderBy(asc(socksPool.latencyMs))
+      .limit(2000);
+    if (okRows.length === 0) {
+      return Response.json({ error: "没有可用代理,先执行测活" }, { status: 422 });
+    }
+    const best = pickBest(
+      okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
+      count,
+    );
+    if (best.length === 0) {
+      return Response.json({ error: "选取失败" }, { status: 422 });
+    }
+
+    const [current] = await db
+      .select()
+      .from(nodeBatches)
+      .where(eq(nodeBatches.isActive, true))
+      .orderBy(desc(nodeBatches.createdAt))
+      .limit(1);
+    const baseNodes = ((current?.nodes as string[]) ?? []).filter(
+      (n) => !n.toLowerCase().startsWith("socks5://"),
+    );
+    const socksUris = best.map(
+      (b) => `socks5://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`,
+    );
+    const mergedNodes = [...baseNodes, ...socksUris];
+    const batchDate = current?.batchDate ?? shanghaiToday();
+
+    const [created] = await db
+      .insert(nodeBatches)
+      .values({
+        title: `批次 ${batchDate}(含 SOCKS5 福利 ×${best.length})`,
+        nodes: mergedNodes,
+        batchDate,
+        nodeCount: mergedNodes.length,
+        isActive: false,
+        createdBy: admin.id,
+      })
+      .returning({ id: nodeBatches.id });
+    await db.transaction(async (tx) => {
+      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
+      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+    });
+    await audit(admin.id, "socks_replace_batch", `batch:${created.id}`, {
+      added: best.length,
+      base: baseNodes.length,
+      batchDate,
+    });
+    return Response.json({
+      ok: true,
+      message: `已替换:原节点 ${baseNodes.length} + 新 SOCKS5 ${best.length} = ${mergedNodes.length}(同日期不扣额度)`,
+      added: best.map((b) => socksNodeName(b.entry)),
+    });
+  }
+
   // ===== 挑选最优并入今日批次 =====
   if (action === "merge") {
     const count = Math.min(Math.max(body.count ?? 30, 1), 50);

@@ -151,6 +151,71 @@ export default function SocksPoolPanel() {
     }
   };
 
+  const doReplace = async () => {
+    const existing = status?.mergedToday ?? 0;
+    if ((status?.summary.ok ?? 0) === 0) return setErr("没有可用代理");
+    if (
+      !confirm(
+        `将移除今日批次现有的 ${existing} 个 SOCKS5,从可用代理重新挑 30 个并入。确定?`,
+      )
+    )
+      return;
+    setBusy("replace");
+    setErr(null);
+    setMsg(null);
+    try {
+      const r = await apiPost<{ message: string; added: string[] }>(
+        "/api/admin/socks",
+        { action: "replace_merge", count: 30 },
+      );
+      setMsg(`${r.message}\n新节点:\n${r.added.join("\n")}`);
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "替换失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doRemove = async () => {
+    if (!confirm("从今日批次移除全部 SOCKS5 福利节点(原付费节点保留)。确定?"))
+      return;
+    setBusy("remove");
+    setErr(null);
+    setMsg(null);
+    try {
+      const r = await apiPost<{ message: string }>("/api/admin/socks", {
+        action: "remove_socks",
+      });
+      setMsg(r.message);
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "操作失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doClearPool = async () => {
+    if (!confirm("清空整个代理池(所有已导入的 SOCKS5 记录,不影响已并入批次)。确定?"))
+      return;
+    if (!confirm("二次确认:真的清空代理池?此操作不可恢复。")) return;
+    setBusy("clear");
+    setErr(null);
+    setMsg(null);
+    try {
+      const r = await apiPost<{ message: string }>("/api/admin/socks", {
+        action: "clear_pool",
+      });
+      setMsg(r.message);
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "操作失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const run = status?.run;
   const pct = run && run.total > 0 ? Math.round((run.done / run.total) * 100) : 0;
 
@@ -272,6 +337,30 @@ export default function SocksPoolPanel() {
             onClick={() => doMerge()}
           >
             挑 30 个并入今日批次
+          </Button>
+          <Button
+            variant="secondary"
+            loading={busy === "replace"}
+            disabled={run?.running || (status?.summary.ok ?? 0) === 0}
+            onClick={doReplace}
+          >
+            替换今日 SOCKS5
+          </Button>
+          <Button
+            variant="ghost"
+            loading={busy === "remove"}
+            disabled={run?.running || (status?.mergedToday ?? 0) === 0}
+            onClick={doRemove}
+          >
+            移除今日 SOCKS5
+          </Button>
+          <Button
+            variant="ghost"
+            loading={busy === "clear"}
+            disabled={run?.running || (status?.summary.total ?? 0) === 0}
+            onClick={doClearPool}
+          >
+            清空代理池
           </Button>
         </div>
         <p className="text-xs" style={{ color: "var(--ark-muted)" }}>
