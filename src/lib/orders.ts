@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, redeemCodes, users } from "@/db/schema";
 import { generateOutTradeNo, generateRedeemCode } from "@/lib/redeem-code";
@@ -22,6 +22,24 @@ export async function createActivationOrder(
   const s = await getSettings();
   return db.transaction(async (tx) => {
     await ensureDefaultsSeeded(tx);
+
+    // 防恶意锁库存:同一 IP 未支付订单超限时拒绝新下单
+    const [{ c: pendingByIp }] = await tx
+      .select({ c: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.orderType, "activation"),
+          eq(orders.status, "pending"),
+          eq(orders.buyerIp, ip),
+        ),
+      );
+    if (pendingByIp >= 2) {
+      return {
+        ok: false as const,
+        error: "你有未完成的订单(超时约 1 小时自动释放),请先完成支付或稍后再试",
+      };
+    }
 
     const ok = await consumeStock(tx);
     if (!ok) return { ok: false as const, error: "暂无库存,请等待补货" };
