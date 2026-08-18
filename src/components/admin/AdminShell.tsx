@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/kumo";
 import {
   HouseIcon,
@@ -28,6 +29,8 @@ export default function AdminShell({
   username: string;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
     <Sidebar.Provider defaultOpen>
       <Sidebar>
@@ -50,9 +53,12 @@ export default function AdminShell({
                 <Sidebar.MenuItem key={item.href}>
                   <Sidebar.MenuButton
                     icon={item.icon}
-                    render={
-                      <a href={item.href} className="block w-full no-underline" />
+                    active={
+                      item.exact
+                        ? pathname === item.href
+                        : pathname.startsWith(item.href)
                     }
+                    onClick={() => window.location.assign(item.href)}
                   >
                     {item.label}
                   </Sidebar.MenuButton>
