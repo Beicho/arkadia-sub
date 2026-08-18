@@ -81,9 +81,11 @@ describe("buildClashYaml", () => {
   });
 
   it("重名节点自动加序号保证唯一", () => {
-    const yaml = buildClashYaml([TROJAN, `${TROJAN}?x=1`])!;
-    expect(yaml).toContain('name: "trojan-node"');
-    expect(yaml).toContain('name: "trojan-node 2"');
+    const T1 = "trojan://fakepass@2.3.4.5:443?sni=a.com#dup-name";
+    const T2 = "trojan://fakepass@3.3.3.3:443?sni=a.com#dup-name";
+    const yaml = buildClashYaml([T1, T2])!;
+    expect(yaml).toContain('name: "dup-name"');
+    expect(yaml).toContain('name: "dup-name 2"');
   });
 
   it("完整配置:选择组 + MATCH 规则(组名不带引号)", () => {
