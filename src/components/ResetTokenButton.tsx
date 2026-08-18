@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { apiPost } from "@/components/api";
 
@@ -22,8 +21,9 @@ export default function ResetTokenButton() {
   };
 
   return (
-    <Button variant="secondary" icon={ArrowClockwiseIcon} loading={loading} onClick={reset}>
-      重置链接
-    </Button>
+    <button className="ark-btn ark-btn-ghost ark-btn-sm" disabled={loading} onClick={reset}>
+      <ArrowClockwiseIcon size={14} />
+      {loading ? "重置中…" : "重置链接"}
+    </button>
   );
 }

@@ -2,8 +2,13 @@ import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db/client";
 import { nodeBatches, orders } from "@/db/schema";
-import { Badge, Banner } from "@/components/kumo";
-import { CheckCircleIcon, GlobeIcon, InfoIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  GlobeHemisphereWestIcon,
+  ClockIcon,
+  LightningIcon,
+  LinkIcon,
+  DownloadSimpleIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import CopyField from "@/components/CopyField";
 import Fingerprint from "@/components/Fingerprint";
 import RenewCard from "@/components/RenewCard";
@@ -16,15 +21,17 @@ import { daysLeft, formatDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_BADGE: Record<string, "success" | "warning" | "secondary"> = {
-  paid: "success",
-  pending: "warning",
-  expired: "secondary",
-};
 const STATUS_TEXT: Record<string, string> = {
   paid: "已支付",
   pending: "待支付",
   expired: "已过期",
+  refunded: "已退款",
+};
+const STATUS_CHIP: Record<string, string> = {
+  paid: "ark-chip ark-chip-green",
+  pending: "ark-chip ark-chip-amber",
+  expired: "ark-chip",
+  refunded: "ark-chip ark-chip-red",
 };
 
 export default async function DashboardPage({
@@ -63,84 +70,117 @@ export default async function DashboardPage({
   const freeDays = daysLeft(user.paidUntil);
   const inFreePeriod = Boolean(user.paidUntil) && freeDays > 0;
   const canPull = user.activated && (inFreePeriod || user.updateCredits > 0);
+  const lastUpdate = activeBatch[0]?.batchDate ?? null;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10">
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
       <Fingerprint />
+
       <header className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-lg font-bold">
-          <GlobeIcon /> Arkadia
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-neutral-500">{user.username}</span>
-          {user.role === "admin" ? <Badge variant="info">管理员</Badge> : null}
+        <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}
+          >
+            <GlobeHemisphereWestIcon size={18} weight="bold" />
+          </span>
+          <span className="ark-display text-lg font-bold">Arkadia</span>
+        </a>
+        <div className="flex items-center gap-2">
+          <span className="ark-chip">
+            {user.username}
+            {user.role === "admin" ? " · 管理员" : ""}
+          </span>
+          {user.role === "admin" ? (
+            <a href="/admin" className="ark-btn ark-btn-ghost ark-btn-sm">后台</a>
+          ) : null}
           <LogoutButton />
         </div>
       </header>
 
-      <section className="mb-6 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-          <div className="mb-2 text-sm text-neutral-500">订阅状态</div>
-          {!user.activated ? (
-            <Banner
-              icon={<InfoIcon weight="fill" />}
-              title="未激活"
-              description="先到兑换页用注册码激活,获得免费更新期。"
-            />
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                {canPull ? (
-                  <>
-                    <CheckCircleIcon className="text-green-600" />
-                    <span className="font-semibold">可更新</span>
-                  </>
-                ) : (
-                  <Badge variant="error">无可用更新</Badge>
-                )}
+      {!user.activated ? (
+        <a
+          href="/redeem"
+          className="ark-card mb-6 flex items-center justify-between p-5 no-underline"
+          style={{ borderColor: "color-mix(in srgb, var(--ark-accent) 35%, var(--ark-border))" }}
+        >
+          <div>
+            <div className="font-semibold">账号未激活</div>
+            <div className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
+              用注册码激活,立即获得 {s.activation_days} 天免费更新期
+            </div>
+          </div>
+          <span className="ark-btn ark-btn-primary ark-btn-sm">去兑换 →</span>
+        </a>
+      ) : (
+        <section className="mb-6 grid gap-4 md:grid-cols-2">
+          {/* 状态卡 */}
+          <div className="ark-card p-6">
+            <div className="ark-label">订阅状态</div>
+            {canPull ? (
+              <div className="flex items-center gap-2 text-lg font-bold" style={{ color: "var(--ark-green)" }}>
+                <LightningIcon size={20} weight="fill" />
+                可更新
               </div>
-              <div className="text-sm text-neutral-600 dark:text-neutral-300">
-                {inFreePeriod ? (
-                  <>
-                    免费更新期:剩余 <b>{freeDays}</b> 天({formatDate(user.paidUntil)}{" "}
-                    到期)
-                  </>
-                ) : (
-                  "免费更新期已结束"
-                )}
+            ) : (
+              <div className="flex items-center gap-2 text-lg font-bold" style={{ color: "var(--ark-red)" }}>
+                无可用更新
               </div>
-              <div className="text-sm text-neutral-600 dark:text-neutral-300">
-                更新额度:<b>{user.updateCredits}</b> 次
-                <span className="text-neutral-400">(拉新批次扣 1,不随时间过期)</span>
+            )}
+            <div className="mt-4 space-y-2 text-sm">
+              {inFreePeriod ? (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: "var(--ark-muted)" }}>
+                    <ClockIcon size={13} className="mr-1 inline" /> 免费更新期
+                  </span>
+                  <span>
+                    剩 <b className="ark-mono">{freeDays}</b> 天({formatDate(user.paidUntil)})
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between">
+                <span style={{ color: "var(--ark-muted)" }}>
+                  <LightningIcon size={13} className="mr-1 inline" /> 更新额度
+                </span>
+                <span>
+                  <b className="ark-mono" style={{ color: user.updateCredits > 0 ? "var(--ark-accent)" : "inherit" }}>
+                    {user.updateCredits}
+                  </b>{" "}
+                  次
+                </span>
               </div>
-              {activeBatch[0] ? (
-                <div className="text-xs text-neutral-400">
-                  站长最近更新:{activeBatch[0].batchDate}
+              {lastUpdate ? (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: "var(--ark-muted)" }}>站长最近更新</span>
+                  <span className="ark-mono">{lastUpdate}</span>
                 </div>
               ) : null}
             </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-          <div className="mb-2 text-sm text-neutral-500">订阅链接(仅自己可见)</div>
-          <CopyField value={subUrl} />
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <a
-              href={`/${user.subToken}?raw=1`}
-              className="text-sm underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              下载节点文件
-            </a>
-            <ResetTokenButton />
           </div>
-          <p className="mt-2 text-xs text-neutral-400">
-            把链接填进客户端的"订阅"即可;泄露给他人请立即重置。
-          </p>
-        </div>
-      </section>
+
+          {/* 订阅链接卡 */}
+          <div className="ark-card flex flex-col p-6">
+            <div className="ark-label">订阅链接(仅自己可见,勿分享)</div>
+            <CopyField value={subUrl} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <a
+                href={`/${user.subToken}?raw=1`}
+                target="_blank"
+                rel="noreferrer"
+                className="ark-btn ark-btn-ghost ark-btn-sm"
+              >
+                <DownloadSimpleIcon size={14} />
+                下载节点文件
+              </a>
+              <ResetTokenButton />
+            </div>
+            <p className="mt-auto pt-3 text-xs" style={{ color: "var(--ark-muted)" }}>
+              <LinkIcon size={12} className="mr-1 inline" />
+              填进客户端&quot;订阅&quot;即可;泄露给他人请立即重置链接。
+            </p>
+          </div>
+        </section>
+      )}
 
       {user.activated ? (
         <section className="mb-6">
@@ -150,52 +190,51 @@ export default async function DashboardPage({
             noRefundAccepted={Boolean(user.noRefundAcceptedAt)}
           />
         </section>
-      ) : (
-        <section className="mb-6">
-          <a
-            href="/redeem"
-            className="block rounded-xl bg-neutral-900 px-5 py-4 text-center font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900"
-          >
-            前往兑换注册码 →
-          </a>
-        </section>
-      )}
+      ) : null}
 
-      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+      <section className="ark-card p-6">
         <div className="mb-3 font-semibold">我的订单</div>
         {myOrders.length === 0 ? (
-          <p className="text-sm text-neutral-500">还没有订单。</p>
+          <p className="text-sm" style={{ color: "var(--ark-muted)" }}>还没有订单。</p>
         ) : (
-          <ul className="divide-y divide-neutral-100 text-sm dark:divide-neutral-800">
-            {myOrders.map((o) => (
-              <li key={o.id} className="flex items-center justify-between py-2">
-                <div>
-                  <span className="font-mono text-xs">{o.outTradeNo}</span>
-                  <span className="ml-2 text-neutral-400">
-                    {o.orderType === "renewal" ? `更新额度 ×${o.quantity}` : "注册码"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>{Number(o.amount).toFixed(0)} LDC</span>
-                  <Badge variant={STATUS_BADGE[o.status] ?? "secondary"}>
-                    {STATUS_TEXT[o.status] ?? o.status}
-                  </Badge>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="ark-scroll-x">
+            <table className="ark-table">
+              <thead>
+                <tr>
+                  <th>单号</th>
+                  <th>内容</th>
+                  <th>金额</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {myOrders.map((o) => (
+                  <tr key={o.id}>
+                    <td className="ark-mono text-xs">{o.outTradeNo}</td>
+                    <td>{o.orderType === "renewal" ? `更新额度 ×${o.quantity}` : "注册码"}</td>
+                    <td className="ark-mono">{Number(o.amount).toFixed(0)} LDC</td>
+                    <td>
+                      <span className={STATUS_CHIP[o.status] ?? "ark-chip"}>
+                        {STATUS_TEXT[o.status] ?? o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
       {orderNo ? (
-        <p className="mt-4 text-center text-xs text-neutral-400">
-          支付回跳订单:{orderNo}(若未入账,稍后自动对账)
+        <p className="mt-4 text-center text-xs" style={{ color: "var(--ark-muted)" }}>
+          支付回跳订单:{orderNo}(若未入账,系统会自动对账)
         </p>
       ) : null}
 
-      <footer className="mt-10 text-center text-sm text-neutral-400">
-        <a href="/tos" className="underline">服务条款(不退款)</a>
+      <footer className="mt-10 pb-6 text-center text-xs" style={{ color: "var(--ark-muted)" }}>
+        <a href="/tos" style={{ color: "inherit" }}>服务条款(不退款)</a>
       </footer>
-    </main>
+    </div>
   );
 }

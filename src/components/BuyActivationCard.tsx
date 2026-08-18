@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Badge } from "@cloudflare/kumo/components/badge";
-import { TicketIcon } from "@phosphor-icons/react";
+import {
+  TicketIcon,
+  LightningIcon,
+  ClockIcon,
+  CheckCircleIcon,
+} from "@phosphor-icons/react";
 import { apiPost } from "@/components/api";
 
 export default function BuyActivationCard({
@@ -37,47 +40,86 @@ export default function BuyActivationCard({
   const soldOut = stock <= 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+    <div
+      className="ark-card relative flex flex-col gap-4 p-6"
+      style={{ borderColor: "color-mix(in srgb, var(--ark-accent) 30%, var(--ark-border))" }}
+    >
+      <div
+        className="ark-chip ark-chip-accent absolute -top-3 left-5"
+        style={{ background: "var(--ark-bg)" }}
+      >
+        推荐
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
-          <TicketIcon />
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--ark-surface-2)", color: "var(--ark-accent)" }}
+          >
+            <TicketIcon size={18} />
+          </span>
           注册码
         </div>
         {soldOut ? (
-          <Badge variant="error">已售罄</Badge>
+          <span className="ark-chip ark-chip-red">已售罄</span>
         ) : (
-          <Badge variant="success">有货 · 库存 {stock}</Badge>
+          <span className="ark-chip ark-chip-green">余 {stock} 个名额</span>
         )}
       </div>
-      {lastUpdate ? (
-        <div className="text-xs text-neutral-400">站长最近更新:{lastUpdate}</div>
-      ) : (
-        <div className="text-xs text-neutral-400">站长尚未上传节点批次</div>
-      )}
-      <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-bold">{price}</span>
-        <span className="text-sm text-neutral-500">LDC</span>
+
+      <div className="flex items-baseline gap-1.5">
+        <span className="ark-display text-4xl font-extrabold">{price}</span>
+        <span className="text-sm" style={{ color: "var(--ark-muted)" }}>LDC</span>
       </div>
-      <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
-        <li>· 兑换后 {days} 天内更新免费,随便拉</li>
-        <li>· 每天更新实测可用节点</li>
-        <li>· 免费期后 {`${priceHint} LDC/次更新`},额度永不过期</li>
+
+      <ul className="space-y-2.5 text-sm" style={{ color: "var(--ark-muted)" }}>
+        <li className="flex gap-2">
+          <CheckCircleIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+          兑换即激活,绑定你的 LinuxDo 账号
+        </li>
+        <li className="flex gap-2">
+          <ClockIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+          赠送 {days} 天免费更新期,期间随便拉
+        </li>
+        <li className="flex gap-2">
+          <LightningIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+          免费期后 {priceHint} LDC/次更新,额度永不过期
+        </li>
+        <li className="flex gap-2">
+          <CheckCircleIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+          专属订阅链接,节点名带日期(Arkadia-日期-序号)
+        </li>
       </ul>
+
+      {lastUpdate ? (
+        <div className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
+          站长最近更新批次:{lastUpdate}
+        </div>
+      ) : (
+        <div className="ark-mono text-xs" style={{ color: "var(--ark-amber)" }}>
+          站长尚未上传首批节点
+        </div>
+      )}
+
       {error ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-red) 12%, transparent)",
+            color: "var(--ark-red)",
+          }}
+        >
           {error}
         </div>
       ) : null}
-      <Button
-        variant="primary"
-        loading={loading}
-        disabled={soldOut}
-        onClick={buy}
-      >
-        {soldOut ? "暂无库存,等补货" : `购买注册码(${price} LDC)`}
-      </Button>
-      <p className="text-xs text-neutral-400">
-        支付即视为同意 <a className="underline" href="/tos">不退款条款</a>;请保存好订单号与注册码。
+
+      <button className="ark-btn ark-btn-primary mt-auto w-full" disabled={soldOut} onClick={buy}>
+        {loading ? "正在创建订单…" : soldOut ? "暂无库存,等补货" : `购买注册码 · ${price} LDC`}
+      </button>
+
+      <p className="text-center text-xs" style={{ color: "var(--ark-muted)" }}>
+        无需注册,直接 LDC 支付,付款后立刻发码
       </p>
     </div>
   );

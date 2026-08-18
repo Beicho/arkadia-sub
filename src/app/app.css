@@ -3,34 +3,186 @@
 @import "@cloudflare/kumo/styles/tailwind";
 @import "tailwindcss";
 
-:root {
-  color-scheme: light dark;
+/* ===== Arkadia 设计令牌:深墨 + 信号橙 + 等宽代码感 ===== */
+:root,
+[data-mode="dark"] {
+  --ark-bg: #0a0d14;
+  --ark-surface: #121722;
+  --ark-surface-2: #171e2c;
+  --ark-border: #222c41;
+  --ark-border-strong: #31405f;
+  --ark-text: #e9edf5;
+  --ark-muted: #8d97ad;
+  --ark-accent: #f6821f;
+  --ark-accent-hover: #ff9438;
+  --ark-accent-ink: #14100a;
+  --ark-green: #34d399;
+  --ark-red: #f87171;
+  --ark-amber: #fbbf24;
+  --ark-grid: rgba(148, 163, 199, 0.055);
+  --ark-glow: rgba(246, 130, 31, 0.09);
+  color-scheme: dark;
+}
+
+[data-mode="light"] {
+  --ark-bg: #f7f8fa;
+  --ark-surface: #ffffff;
+  --ark-surface-2: #f1f3f7;
+  --ark-border: #e2e6ee;
+  --ark-border-strong: #c9d2e3;
+  --ark-text: #171c26;
+  --ark-muted: #5d6a80;
+  --ark-accent: #e8700a;
+  --ark-accent-hover: #f6821f;
+  --ark-accent-ink: #fffaf3;
+  --ark-green: #059669;
+  --ark-red: #dc2626;
+  --ark-amber: #b45309;
+  --ark-grid: rgba(23, 28, 38, 0.05);
+  --ark-glow: rgba(232, 112, 10, 0.07);
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
+  color: var(--ark-text);
+  background:
+    radial-gradient(1100px 480px at 75% -12%, var(--ark-glow), transparent 62%),
+    linear-gradient(var(--ark-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ark-grid) 1px, transparent 1px),
+    var(--ark-bg);
+  background-size: auto, 46px 46px, 46px 46px, auto;
+  background-attachment: fixed;
 }
 
-/* ===== 管理后台侧栏响应式(适配 Kumo Sidebar 渲染的 aside) ===== */
-@media (min-width: 1024px) {
-  body:has(aside[data-sidebar-open="true"]) .admin-main {
-    margin-left: 304px;
-  }
-  body:has(aside[data-sidebar-open="false"]) .admin-main {
-    margin-left: 48px;
-  }
+/* ===== 通用构件 ===== */
+.ark-display {
+  font-family: var(--font-sora), ui-sans-serif, system-ui, "PingFang SC",
+    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  letter-spacing: -0.02em;
 }
 
-@media (max-width: 1023px) {
-  aside[data-sidebar-open="true"] {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 50;
-  }
+.ark-mono {
+  font-family: var(--font-jbmono), ui-monospace, "SF Mono", Consolas, monospace;
 }
 
-/* 订阅链接等长文本换行 */
-.break-anywhere {
-  overflow-wrap: anywhere;
+.ark-card {
+  background: var(--ark-surface);
+  border: 1px solid var(--ark-border);
+  border-radius: 14px;
 }
+
+.ark-card-2 {
+  background: var(--ark-surface-2);
+  border: 1px solid var(--ark-border);
+  border-radius: 12px;
+}
+
+.ark-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ark-border);
+  background: color-mix(in srgb, var(--ark-surface-2) 80%, transparent);
+  color: var(--ark-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ark-chip-accent {
+  color: var(--ark-accent);
+  border-color: color-mix(in srgb, var(--ark-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--ark-accent) 10%, transparent);
+}
+
+.ark-chip-green { color: var(--ark-green); border-color: color-mix(in srgb, var(--ark-green) 40%, transparent); background: color-mix(in srgb, var(--ark-green) 10%, transparent); }
+.ark-chip-red { color: var(--ark-red); border-color: color-mix(in srgb, var(--ark-red) 40%, transparent); background: color-mix(in srgb, var(--ark-red) 10%, transparent); }
+.ark-chip-amber { color: var(--ark-amber); border-color: color-mix(in srgb, var(--ark-amber) 40%, transparent); background: color-mix(in srgb, var(--ark-amber) 10%, transparent); }
+
+.ark-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+}
+.ark-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ark-btn-primary {
+  background: var(--ark-accent);
+  color: var(--ark-accent-ink);
+}
+.ark-btn-primary:hover:not(:disabled) { background: var(--ark-accent-hover); }
+
+.ark-btn-ghost {
+  background: transparent;
+  color: var(--ark-text);
+  border-color: var(--ark-border-strong);
+}
+.ark-btn-ghost:hover:not(:disabled) { background: var(--ark-surface-2); }
+
+.ark-btn-danger {
+  background: transparent;
+  color: var(--ark-red);
+  border-color: color-mix(in srgb, var(--ark-red) 45%, transparent);
+}
+.ark-btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ark-red) 12%, transparent); }
+
+.ark-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+.ark-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ark-border-strong);
+  background: var(--ark-bg);
+  color: var(--ark-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.ark-input:focus { border-color: var(--ark-accent); }
+
+.ark-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--ark-muted);
+}
+
+.ark-divider { border-top: 1px solid var(--ark-border); }
+
+.ark-scroll-x { overflow-x: auto; }
+
+/* 长文本(订阅链接/单号)换行 */
+.break-anywhere { overflow-wrap: anywhere; }
+
+/* 管理端表格:粘性表头小屏优化 */
+.ark-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ark-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--ark-muted);
+  font-weight: 500;
+  font-size: 12px;
+  border-bottom: 1px solid var(--ark-border);
+  white-space: nowrap;
+}
+.ark-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ark-border) 55%, transparent);
+  vertical-align: middle;
+}
+.ark-table tr:last-child td { border-bottom: none; }

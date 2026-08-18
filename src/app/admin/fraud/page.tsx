@@ -2,7 +2,7 @@ import { countDistinct, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditLogs, subPulls, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
-import { Badge } from "@/components/kumo";
+import StatusChip from "@/components/admin/StatusChip";
 import { fingerprintClusters } from "@/lib/fingerprint";
 import { formatDate } from "@/lib/time";
 
@@ -65,12 +65,9 @@ export default async function AdminFraudPage() {
               c.users.length,
               <span key="u" className="flex flex-wrap gap-1">
                 {c.users.map((u) => (
-                  <Badge
-                    key={u.id}
-                    variant={u.status === "banned" ? "error" : "secondary"}
-                  >
+                  <StatusChip key={u.id} tone={u.status === "banned" ? "red" : "neutral"}>
                     {u.username}
-                  </Badge>
+                  </StatusChip>
                 ))}
               </span>,
               formatDate(c.lastSeenAt),

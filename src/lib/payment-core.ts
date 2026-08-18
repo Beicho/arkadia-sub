@@ -22,7 +22,7 @@ export async function markOrderPaid(
       .for("update")
       .limit(1);
     if (!order) return "not_found";
-    if (order.status === "paid") return "already_paid";
+    if (order.status !== "pending") return "already_paid";
 
     await tx
       .update(orders)

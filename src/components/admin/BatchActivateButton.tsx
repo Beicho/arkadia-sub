@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
 import { apiPost } from "@/components/api";
 
 export default function BatchActivateButton({
@@ -18,7 +17,7 @@ export default function BatchActivateButton({
   const toggle = async () => {
     const action = active ? "deactivate" : "activate";
     if (action === "activate") {
-      if (!confirm("激活该批次后,所有用户的订阅将立即下发这批节点。确定?")) return;
+      if (!confirm("激活后所有用户的订阅将立即下发这批节点。确定?")) return;
     }
     setLoading(true);
     try {
@@ -30,8 +29,12 @@ export default function BatchActivateButton({
   };
 
   return (
-    <Button variant={active ? "secondary" : "primary"} loading={loading} onClick={toggle}>
-      {active ? "停用" : "激活"}
-    </Button>
+    <button
+      className={active ? "ark-btn ark-btn-ghost ark-btn-sm" : "ark-btn ark-btn-primary ark-btn-sm"}
+      disabled={loading}
+      onClick={toggle}
+    >
+      {loading ? "…" : active ? "停用" : "激活"}
+    </button>
   );
 }

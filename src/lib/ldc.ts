@@ -98,6 +98,41 @@ export type LdcOrderStatus = {
   raw: unknown;
 };
 
+/**
+ * 订单退款:POST /epay/api.php(pid/key 鉴权)。
+ * 仅支持全额退回:money 必须等于原订单金额。
+ */
+export async function ldcRefund(
+  tradeNo: string,
+  money: number,
+): Promise<{ ok: boolean; msg: string }> {
+  const body = new URLSearchParams({
+    pid: ldcPid(),
+    key: ldcKey(),
+    trade_no: tradeNo,
+    money: money.toFixed(2),
+  });
+  try {
+    const res = await fetch(`${EPAY_BASE}/api.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => null)) as {
+      code?: number;
+      msg?: string;
+    } | null;
+    if (data?.code === 1) return { ok: true, msg: data.msg ?? "退款成功" };
+    return { ok: false, msg: data?.msg ?? `HTTP ${res.status}` };
+  } catch (err) {
+    return {
+      ok: false,
+      msg: err instanceof Error ? err.message : "网络错误",
+    };
+  }
+}
+
 /** 主动查询订单(对账兜底) */
 export async function queryLdcOrder(outTradeNo: string): Promise<LdcOrderStatus> {
   const url = new URL(`${EPAY_BASE}/api.php`);

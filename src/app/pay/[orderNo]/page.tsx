@@ -25,30 +25,31 @@ export default async function PayPage({
 
   if (!order) {
     return (
-      <main className="mx-auto max-w-md px-4 py-20 text-center">
-        <h1 className="mb-3 text-xl font-bold">订单不存在</h1>
-        <p className="text-sm text-neutral-500">请回到首页重新下单。</p>
+      <main className="mx-auto max-w-md px-4 py-24 text-center">
+        <h1 className="ark-display mb-3 text-xl font-bold">订单不存在</h1>
+        <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
+          请回到首页重新下单。
+        </p>
+        <a href="/" className="ark-btn ark-btn-ghost ark-btn-sm mt-4">返回首页</a>
       </main>
     );
   }
 
   if (order.status !== "pending") {
+    const refunded = order.status === "refunded";
     const target =
       order.orderType === "activation"
         ? `/redeem?order=${order.outTradeNo}`
         : `/dashboard?order=${order.outTradeNo}`;
     return (
-      <main className="mx-auto max-w-md px-4 py-20 text-center">
-        <h1 className="mb-3 text-xl font-bold">
-          订单{order.status === "paid" ? "已支付" : "已过期"}
+      <main className="mx-auto max-w-md px-4 py-24 text-center">
+        <h1 className="ark-display mb-3 text-xl font-bold">
+          {order.status === "paid" ? "订单已支付" : refunded ? "订单已退款" : "订单已过期"}
         </h1>
-        <p className="mb-6 text-sm text-neutral-500">单号:{order.outTradeNo}</p>
-        <a
-          href={target}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-neutral-100 dark:text-neutral-900"
-        >
-          继续
-        </a>
+        <p className="ark-mono mb-6 text-xs" style={{ color: "var(--ark-muted)" }}>
+          {order.outTradeNo}
+        </p>
+        <a href={target} className="ark-btn ark-btn-primary">继续</a>
       </main>
     );
   }
@@ -69,31 +70,39 @@ export default async function PayPage({
   });
 
   return (
-    <main className="mx-auto max-w-md px-4 py-20">
-      <h1 className="mb-1 text-xl font-bold">正在前往 LDC 支付</h1>
-      <p className="mb-6 text-sm text-neutral-500">
-        订单 {order.outTradeNo} · {Number(order.amount).toFixed(2)} LDC
-      </p>
-      <form id="payform" method="POST" action={SUBMIT_URL} className="hidden">
-        {Object.entries(fields).map(([k, v]) => (
-          <input key={k} type="hidden" name={k} value={v} />
-        ))}
-      </form>
-      <script
-        dangerouslySetInnerHTML={{
-          __html:
-            "setTimeout(function(){document.getElementById('payform').submit()},300);",
-        }}
-      />
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-800 dark:border-neutral-600 dark:border-t-neutral-200" />
-        <button
-          type="submit"
-          form="payform"
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-neutral-100 dark:text-neutral-900"
-        >
-          若未自动跳转,点这里提交
-        </button>
+    <main className="mx-auto max-w-md px-4 py-24">
+      <div className="ark-card space-y-5 p-6 text-center">
+        <h1 className="ark-display text-xl font-bold">正在前往 LDC 支付</h1>
+        <div className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
+          {order.outTradeNo}
+        </div>
+        <div className="ark-display text-3xl font-extrabold" style={{ color: "var(--ark-accent)" }}>
+          {Number(order.amount).toFixed(2)}
+          <span className="ml-1 text-sm font-normal" style={{ color: "var(--ark-muted)" }}>LDC</span>
+        </div>
+        <form id="payform" method="POST" action={SUBMIT_URL} className="hidden">
+          {Object.entries(fields).map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+        </form>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "setTimeout(function(){document.getElementById('payform').submit()},400);",
+          }}
+        />
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="h-8 w-8 animate-spin rounded-full"
+            style={{
+              border: "2px solid var(--ark-border-strong)",
+              borderTopColor: "var(--ark-accent)",
+            }}
+          />
+          <button type="submit" form="payform" className="ark-btn ark-btn-ghost ark-btn-sm">
+            若未自动跳转,点这里提交
+          </button>
+        </div>
       </div>
     </main>
   );

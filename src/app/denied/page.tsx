@@ -34,11 +34,11 @@ export default async function DeniedPage({
   return (
     <main className="mx-auto max-w-md px-4 py-24 text-center">
       <div className="mb-4 text-5xl">⛔</div>
-      <h1 className="mb-3 text-xl font-bold">{info.title}</h1>
-      <p className="mb-8 text-sm text-neutral-500">{info.body}</p>
-      <a href="/" className="text-sm underline">
-        返回首页
-      </a>
+      <h1 className="ark-display mb-3 text-xl font-bold">{info.title}</h1>
+      <p className="mb-8 text-sm" style={{ color: "var(--ark-muted)" }}>
+        {info.body}
+      </p>
+      <a href="/" className="ark-btn ark-btn-ghost ark-btn-sm">返回首页</a>
     </main>
   );
 }

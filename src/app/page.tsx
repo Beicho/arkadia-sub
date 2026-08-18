@@ -1,9 +1,16 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nodeBatches } from "@/db/schema";
-import { Badge, Banner } from "@/components/kumo";
-
-import { GlobeIcon, ShieldCheckIcon, DatabaseIcon, WarningIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  GlobeHemisphereWestIcon,
+  LightningIcon,
+  ShieldCheckIcon,
+  CoinsIcon,
+  ArrowRightIcon,
+  ClockIcon,
+  DatabaseIcon,
+  WarningIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import BuyActivationCard from "@/components/BuyActivationCard";
 import DevLoginPanel from "@/components/DevLoginPanel";
 import LoginButton from "@/components/LogoutButton";
@@ -25,89 +32,191 @@ export default async function Home() {
       .where(eq(nodeBatches.isActive, true))
       .limit(1),
   ]);
+  const lastUpdate = activeBatch[0]?.batchDate ?? null;
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10 md:py-16">
-      <header className="mb-10 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xl font-bold">
-          <GlobeIcon />
-          Arkadia
-        </div>
+    <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
+      {/* ===== 顶栏 ===== */}
+      <header className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between border-b px-4 py-4 md:-mx-6 md:px-6"
+        style={{ borderColor: "var(--ark-border)", background: "color-mix(in srgb, var(--ark-bg) 82%, transparent)", backdropFilter: "blur(12px)" }}>
+        <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}>
+            <GlobeHemisphereWestIcon size={18} weight="bold" />
+          </span>
+          <span className="ark-display text-lg font-bold tracking-tight">Arkadia</span>
+        </a>
+        <nav className="hidden items-center gap-6 text-sm md:flex" style={{ color: "var(--ark-muted)" }}>
+          <a href="#pricing" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>定价</a>
+          <a href="/redeem" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>兑换注册码</a>
+          <a href="/tos" className="no-underline transition-colors hover:text-[var(--ark-text)]" style={{ color: "inherit" }}>服务条款</a>
+        </nav>
         <div className="flex items-center gap-3">
           {user ? (
-            <a href={user.role === "admin" ? "/admin" : "/dashboard"} className="text-sm underline">
-              {user.username} · 进入{user.role === "admin" ? "后台" : "面板"}
+            <a href={user.role === "admin" ? "/admin" : "/dashboard"} className="ark-btn ark-btn-ghost ark-btn-sm">
+              {user.username}
+              <ArrowRightIcon size={14} />
             </a>
-          ) : null}
-          {user ? null : <LoginButton variant="secondary" />}
+          ) : (
+            <LoginButton variant="secondary" />
+          )}
         </div>
       </header>
 
-      <section className="mb-10 text-center">
-        <h1 className="mb-3 text-3xl font-bold md:text-5xl">每日实测节点订阅</h1>
-        <p className="mx-auto max-w-2xl text-neutral-600 dark:text-neutral-300">
-          站长每天人工测试、替换节点。付款后用你的专属订阅链接,随时拉取当天最新的
-          {" "}{s.expected_node_count} 个可用节点。
+      {/* ===== Hero ===== */}
+      <section className="pb-14 pt-10 text-center md:pb-20 md:pt-16">
+        <span className="ark-chip ark-chip-accent mb-6">
+          <LightningIcon size={13} weight="fill" />
+          LinuxDo 生态 · 每日人工实测
+        </span>
+        <h1 className="ark-display mx-auto mb-5 max-w-3xl text-4xl font-extrabold leading-[1.12] md:text-6xl">
+          每天一批,
+          <span style={{ color: "var(--ark-accent)" }}>实测可用</span>
+          的节点
+        </h1>
+        <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed md:text-base" style={{ color: "var(--ark-muted)" }}>
+          站长每天测速、筛掉坏节点,把当天最好的 {s.expected_node_count} 个打包成批次。
+          付款激活后用你的专属订阅链接,随时刷出最新一批——节点名自带日期,新鲜度一眼可辨。
         </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Badge variant="info">
-            <span className="flex items-center gap-1">
-              <ShieldCheckIcon /> LinuxDo OAuth 登录
-            </span>
-          </Badge>
-          <Badge variant="info">LDC 支付</Badge>
-          <Badge variant="info">每日更新</Badge>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <a href="#pricing" className="ark-btn ark-btn-primary">
+            购买注册码 · {s.activation_price} LDC
+            <ArrowRightIcon size={15} />
+          </a>
+          {user ? (
+            <a href="/dashboard" className="ark-btn ark-btn-ghost">进入面板</a>
+          ) : (
+            <a href="/api/auth/login" className="ark-btn ark-btn-ghost">
+              <ShieldCheckIcon size={15} />
+              使用 LinuxDo 登录
+            </a>
+          )}
+        </div>
+
+        {/* 状态条 */}
+        <div className="mx-auto mt-12 flex max-w-2xl flex-wrap items-center justify-center gap-2.5">
+          <span className="ark-chip">
+            <DatabaseIcon size={13} />
+            库存
+            <b className="ark-mono" style={{ color: s.code_stock > 0 ? "var(--ark-green)" : "var(--ark-red)" }}>
+              {s.code_stock}
+            </b>
+          </span>
+          <span className="ark-chip">
+            <ClockIcon size={13} />
+            最近更新
+            <b className="ark-mono" style={{ color: lastUpdate ? "var(--ark-text)" : "var(--ark-amber)" }}>
+              {lastUpdate ?? "待首传"}
+            </b>
+          </span>
+          <span className="ark-chip">
+            <DatabaseIcon size={13} />
+            每批 {s.expected_node_count} 节点
+          </span>
+          <span className="ark-chip">
+            <CoinsIcon size={13} />
+            续价 {s.price_per_update} LDC/次
+          </span>
         </div>
       </section>
 
-      <section className="mb-10 grid gap-4 md:grid-cols-2">
-        <BuyActivationCard
-          price={s.activation_price}
-          days={s.activation_days}
-          stock={s.code_stock}
-          priceHint={s.price_per_update}
-          lastUpdate={activeBatch[0]?.batchDate ?? null}
-        />
-        <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-          <div className="flex items-center gap-2 font-semibold">
-            <DatabaseIcon />
-            更新额度
+      {/* ===== 定价 ===== */}
+      <section id="pricing" className="pb-16">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <div className="ark-display text-xl font-bold md:text-2xl">定价</div>
+            <div className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
+              一次性注册,之后按需买更新额度——不更新就不用花钱。
+            </div>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold">{s.price_per_update}</span>
-            <span className="text-sm text-neutral-500">LDC / 次更新</span>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <BuyActivationCard
+            price={s.activation_price}
+            days={s.activation_days}
+            stock={s.code_stock}
+            priceHint={s.price_per_update}
+            lastUpdate={lastUpdate}
+          />
+
+          <div className="ark-card relative flex flex-col gap-4 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-semibold">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg"
+                  style={{ background: "var(--ark-surface-2)", color: "var(--ark-accent)" }}>
+                  <CoinsIcon size={18} />
+                </span>
+                更新额度
+              </div>
+              <span className="ark-chip">免费期后</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="ark-display text-4xl font-extrabold" style={{ color: "var(--ark-accent)" }}>
+                {s.price_per_update}
+              </span>
+              <span className="text-sm" style={{ color: "var(--ark-muted)" }}>LDC / 次更新</span>
+            </div>
+            <ul className="space-y-2.5 text-sm" style={{ color: "var(--ark-muted)" }}>
+              <li className="flex gap-2">
+                <LightningIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+                站长上传新批次后,刷新订阅即得,扣 1 额度
+              </li>
+              <li className="flex gap-2">
+                <ClockIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+                额度永久有效,不随时间过期
+              </li>
+              <li className="flex gap-2">
+                <DatabaseIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+                重复拉取同一批次不重复扣
+              </li>
+              <li className="flex gap-2">
+                <ShieldCheckIcon size={15} className="mt-0.5 shrink-0" style={{ color: "var(--ark-green)" }} />
+                断更期间无需购买,零浪费
+              </li>
+            </ul>
+            <div className="mt-auto text-sm" style={{ color: "var(--ark-muted)" }}>
+              购买额度请先
+              <a href="/api/auth/login" style={{ color: "var(--ark-accent)" }}> 登录 </a>
+              后进入
+              <a href="/dashboard" style={{ color: "var(--ark-accent)" }}> 面板</a>。
+            </div>
           </div>
-          <ul className="space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
-            <li>· 免费期结束后,每次更新(新批次)消耗 1 额度</li>
-            <li>· 额度不随时间过期,不更新就不用买</li>
-            <li>· 一次可购买 1 ~ {s.max_credits_per_order} 个额度</li>
-            <li>· 节点名称带日期(Arkadia-日期-序号),一眼识别新鲜度</li>
-          </ul>
-          <div className="text-sm text-neutral-500">
-            购买请先 <a className="underline" href="/api/auth/login">登录</a> 后进入
-            <a className="underline" href="/dashboard"> 面板</a>。
+        </div>
+
+        {/* 不退款声明 */}
+        <div className="ark-card mt-4 flex items-start gap-3 p-4"
+          style={{ borderColor: "color-mix(in srgb, var(--ark-amber) 35%, transparent)" }}>
+          <WarningIcon size={20} weight="fill" className="mt-0.5 shrink-0" style={{ color: "var(--ark-amber)" }} />
+          <div className="text-sm" style={{ color: "var(--ark-muted)" }}>
+            <b style={{ color: "var(--ark-text)" }}>不退款声明:</b>
+            本服务为虚拟商品,支付后一律不退款(无论是否使用)。
+            购买即视为同意
+            <a href="/tos" style={{ color: "var(--ark-accent)" }}>《服务条款》</a>。
           </div>
         </div>
       </section>
 
-      <Banner
-        icon={<WarningIcon weight="fill" />}
-        variant="alert"
-        title="不退款声明"
-        description="本服务为虚拟商品,支付后一律不退款(无论是否使用、用了多久)。购买前请确认需求,详见服务条款。"
-      />
-
-      <footer className="mt-10 flex flex-wrap items-center justify-center gap-4 text-sm text-neutral-400">
-        <a href="/tos" className="underline">服务条款</a>
-        <a href="/redeem" className="underline">兑换 / 找回注册码</a>
-        <span>© Arkadia</span>
+      {/* ===== 底部 ===== */}
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t py-8 text-sm"
+        style={{ borderColor: "var(--ark-border)", color: "var(--ark-muted)" }}>
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: "var(--ark-accent)", color: "var(--ark-accent-ink)" }}>
+            <GlobeHemisphereWestIcon size={13} weight="bold" />
+          </span>
+          Arkadia
+        </div>
+        <div className="flex gap-5">
+          <a href="/redeem" style={{ color: "inherit" }} className="no-underline">兑换 / 找回注册码</a>
+          <a href="/tos" style={{ color: "inherit" }} className="no-underline">服务条款</a>
+        </div>
       </footer>
 
       {isDevLogin ? (
-        <div className="mt-6">
+        <div className="pb-10">
           <DevLoginPanel adminName={s.admin_usernames[0] ?? "devadmin"} />
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }

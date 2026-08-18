@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
-import { Switch } from "@cloudflare/kumo/components/switch";
+import { CoinsIcon } from "@phosphor-icons/react";
 import { apiPost } from "@/components/api";
+
+const QUICK = [1, 3, 5, 10, 30];
 
 export default function RenewCard({
   pricePerUpdate,
@@ -38,40 +38,87 @@ export default function RenewCard({
   const amount = credits * pricePerUpdate;
 
   return (
-    <div className="space-y-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-      <div className="font-semibold">购买更新额度</div>
-      <p className="text-sm text-neutral-500">
-        {pricePerUpdate} LDC = 1 次更新额度。站长上传新批次后,刷新订阅即可拿到新节点(扣 1 额度);
-        额度不随时间过期,重复拉同一批不扣。
+    <div className="ark-card flex flex-col gap-4 p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 font-semibold">
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--ark-surface-2)", color: "var(--ark-accent)" }}
+          >
+            <CoinsIcon size={18} />
+          </span>
+          购买更新额度
+        </div>
+        <span className="ark-chip">{pricePerUpdate} LDC / 次</span>
+      </div>
+
+      <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
+        站长上传新批次后刷新订阅即得(扣 1 额度);额度永不过期,重复拉同一批不扣。
       </p>
-      <div className="grid grid-cols-2 items-end gap-3">
-        <Input
-          label="额度数"
-          type="number"
-          min={1}
-          max={maxCredits}
-          value={String(credits)}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            const v = Number(e.target.value);
-            setCredits(
-              Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxCredits) : 1,
-            );
-          }}
-        />
-        <div className="pb-2 text-sm text-neutral-500">
-          单价 {pricePerUpdate} LDC/次
+
+      <div>
+        <div className="ark-label">选择数量</div>
+        <div className="flex flex-wrap gap-2">
+          {QUICK.filter((q) => q <= maxCredits).map((q) => (
+            <button
+              key={q}
+              onClick={() => setCredits(q)}
+              className="ark-btn ark-btn-sm"
+              style={
+                credits === q
+                  ? { background: "var(--ark-accent)", color: "var(--ark-accent-ink)", borderColor: "transparent" }
+                  : undefined
+              }
+            >
+              {q} 次
+            </button>
+          ))}
+          <input
+            className="ark-input w-24 text-center"
+            type="number"
+            min={1}
+            max={maxCredits}
+            value={credits}
+            aria-label="自定义额度数"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const v = Number(e.target.value);
+              setCredits(
+                Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 1), maxCredits) : 1,
+              );
+            }}
+          />
         </div>
       </div>
-      <div className="text-lg font-semibold">
-        合计:<span className="text-primary">{amount}</span> LDC
+
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm" style={{ color: "var(--ark-muted)" }}>
+          {credits} 次更新 × {pricePerUpdate} LDC
+        </span>
+        <span className="ark-display text-2xl font-bold">
+          {amount}
+          <span className="ml-1 text-sm font-normal" style={{ color: "var(--ark-muted)" }}>LDC</span>
+        </span>
       </div>
 
       {!noRefundAccepted ? (
-        <label className="flex items-start gap-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          <Switch checked={accept} onCheckedChange={setAccept} />
+        <label
+          className="flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-amber) 9%, transparent)",
+            color: "var(--ark-amber)",
+            borderColor: "color-mix(in srgb, var(--ark-amber) 30%, transparent)",
+            border: "1px solid",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={accept}
+            onChange={(e) => setAccept(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--ark-accent)]"
+          />
           <span>
             我已阅读并同意
-            <a href="/tos" className="underline" target="_blank" rel="noreferrer">
+            <a href="/tos" target="_blank" rel="noreferrer" className="underline">
               《服务条款》
             </a>
             :本服务为虚拟商品,<b>支付后不退款</b>(无论是否使用)。
@@ -80,14 +127,24 @@ export default function RenewCard({
       ) : null}
 
       {error ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-red) 12%, transparent)",
+            color: "var(--ark-red)",
+          }}
+        >
           {error}
         </div>
       ) : null}
 
-      <Button variant="primary" loading={loading} disabled={!accept} onClick={pay}>
-        支付 {amount} LDC
-      </Button>
+      <button
+        className="ark-btn ark-btn-primary w-full"
+        disabled={loading || (!accept && !noRefundAccepted)}
+        onClick={pay}
+      >
+        {loading ? "正在创建订单…" : `支付 ${amount} LDC`}
+      </button>
     </div>
   );
 }

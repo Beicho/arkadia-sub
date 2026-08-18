@@ -3,19 +3,26 @@ import Link from "next/link";
 import { db } from "@/db/client";
 import { orders, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
-import ReconcileButton from "@/components/admin/ReconcileButton";
-import { Badge } from "@/components/kumo";
+import OrderActions from "@/components/admin/OrderActions";
+import StatusChip from "@/components/admin/StatusChip";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_BADGE: Record<string, "success" | "warning" | "secondary"> = {
-  paid: "success",
-  pending: "warning",
-  expired: "secondary",
+const STATUS_TONE: Record<string, "green" | "amber" | "neutral" | "red"> = {
+  paid: "green",
+  pending: "amber",
+  expired: "neutral",
+  refunded: "red",
+};
+const STATUS_TEXT: Record<string, string> = {
+  paid: "已支付",
+  pending: "待支付",
+  expired: "已过期",
+  refunded: "已退款",
 };
 const TYPE_TEXT: Record<string, string> = {
   activation: "注册码",
-  renewal: "续费",
+  renewal: "更新额度",
 };
 
 export default async function AdminOrdersPage({
@@ -31,7 +38,12 @@ export default async function AdminOrdersPage({
   if (type === "activation" || type === "renewal") {
     conds.push(eq(orders.orderType, type));
   }
-  if (status === "paid" || status === "pending" || status === "expired") {
+  if (
+    status === "paid" ||
+    status === "pending" ||
+    status === "expired" ||
+    status === "refunded"
+  ) {
     conds.push(eq(orders.status, status));
   }
 
@@ -54,69 +66,80 @@ export default async function AdminOrdersPage({
     .limit(100);
 
   const FILTERS = [
-    { label: "全部", href: "/admin/orders" },
-    { label: "待支付", href: "/admin/orders?status=pending" },
-    { label: "已支付", href: "/admin/orders?status=paid" },
-    { label: "已过期", href: "/admin/orders?status=expired" },
-    { label: "注册码单", href: "/admin/orders?type=activation" },
-    { label: "续费单", href: "/admin/orders?type=renewal" },
+    { label: "全部", href: "/admin/orders", q: "" },
+    { label: "待支付", href: "/admin/orders?status=pending", q: "status=pending" },
+    { label: "已支付", href: "/admin/orders?status=paid", q: "status=paid" },
+    { label: "已退款", href: "/admin/orders?status=refunded", q: "status=refunded" },
+    { label: "注册码单", href: "/admin/orders?type=activation", q: "type=activation" },
+    { label: "额度单", href: "/admin/orders?type=renewal", q: "type=renewal" },
   ];
+  const activeQ =
+    [status && `status=${status}`, type && `type=${type}`].filter(Boolean).join("&");
+
+  const fmt = (d: Date | null) =>
+    d
+      ? new Date(d).toLocaleString("zh-CN", {
+          timeZone: "Asia/Shanghai",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "—";
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">订单</h1>
-
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.href}
-            href={f.href}
-            className="rounded-full border border-neutral-200 px-3 py-1 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
-            {f.label}
-          </Link>
-        ))}
+      <div>
+        <h1 className="ark-display text-xl font-bold">订单</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
+          待支付可对账/取消回补;已支付可退款取消(走 LDC 退款,自动回滚发货)。
+        </p>
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-neutral-500">没有符合条件的订单。</p>
-      ) : (
-        <AdminTable
-          head={["单号", "类型", "买家", "金额", "状态", "创建时间", "支付时间", "操作"]}
-          rows={rows.map((o) => [
-            <span key="no" className="font-mono text-xs">
-              {o.outTradeNo}
-            </span>,
-            `${TYPE_TEXT[o.orderType] ?? o.orderType}${o.orderType === "renewal" ? ` ×${o.quantity}` : ""}`,
-            o.username ?? "(游客)",
-            `${Number(o.amount).toFixed(0)} LDC`,
-            <Badge key="st" variant={STATUS_BADGE[o.status] ?? "secondary"}>
-              {o.status}
-            </Badge>,
-            new Date(o.createdAt).toLocaleString("zh-CN", {
-              timeZone: "Asia/Shanghai",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            o.paidAt
-              ? new Date(o.paidAt).toLocaleString("zh-CN", {
-                  timeZone: "Asia/Shanghai",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "—",
-            o.status === "pending" ? (
-              <ReconcileButton key="op" id={o.id} />
-            ) : (
-              "—"
-            ),
-          ])}
-        />
-      )}
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => {
+          const active = f.q === activeQ;
+          return (
+            <Link
+              key={f.href}
+              href={f.href}
+              className="ark-chip no-underline"
+              style={
+                active
+                  ? {
+                      color: "var(--ark-accent)",
+                      borderColor: "color-mix(in srgb, var(--ark-accent) 42%, transparent)",
+                      background: "color-mix(in srgb, var(--ark-accent) 10%, transparent)",
+                    }
+                  : undefined
+              }
+            >
+              {f.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      <AdminTable
+        head={["单号", "类型", "买家", "金额", "状态", "创建", "支付", "操作"]}
+        rows={rows.map((o) => [
+          <span key="no" className="ark-mono text-xs">
+            {o.outTradeNo}
+          </span>,
+          `${TYPE_TEXT[o.orderType] ?? o.orderType} ×${o.quantity}`,
+          o.username ?? "(游客)",
+          <span key="am" className="ark-mono">
+            {Number(o.amount).toFixed(0)} LDC
+          </span>,
+          <StatusChip key="st" tone={STATUS_TONE[o.status] ?? "neutral"}>
+            {STATUS_TEXT[o.status] ?? o.status}
+          </StatusChip>,
+          fmt(o.createdAt),
+          fmt(o.paidAt),
+          <OrderActions key="op" id={o.id} status={o.status} />,
+        ])}
+      />
     </div>
   );
 }

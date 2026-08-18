@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
 import { apiPost } from "@/components/api";
 
 export default function RedeemForm() {
@@ -30,22 +28,30 @@ export default function RedeemForm() {
 
   return (
     <div className="space-y-3">
-      <Input
-        label="注册码"
-        placeholder="ARK-XXXX-XXXX-XXXX"
-        value={code}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          setCode(e.target.value.toUpperCase())
-        }
-      />
+      <div>
+        <label className="ark-label" htmlFor="redeem-code">注册码</label>
+        <input
+          id="redeem-code"
+          className="ark-input ark-mono"
+          placeholder="ARK-XXXX-XXXX-XXXX"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+        />
+      </div>
       {error ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-red) 12%, transparent)",
+            color: "var(--ark-red)",
+          }}
+        >
           {error}
         </div>
       ) : null}
-      <Button variant="primary" loading={loading} onClick={submit}>
-        兑换并激活
-      </Button>
+      <button className="ark-btn ark-btn-primary w-full" disabled={loading} onClick={submit}>
+        {loading ? "兑换中…" : "兑换并激活"}
+      </button>
     </div>
   );
 }

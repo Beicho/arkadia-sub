@@ -4,7 +4,7 @@ import { nodeBatches } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import BatchActivateButton from "@/components/admin/BatchActivateButton";
 import BatchForm from "@/components/admin/BatchForm";
-import { Badge } from "@/components/kumo";
+import StatusChip from "@/components/admin/StatusChip";
 import { getSettings } from "@/lib/settings";
 import { formatDate, shanghaiToday } from "@/lib/time";
 
@@ -18,40 +18,32 @@ export default async function AdminNodesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">节点批次</h1>
+      <h1 className="ark-display text-xl font-bold">节点批次</h1>
 
       <BatchForm expectedCount={s.expected_node_count} today={shanghaiToday()} />
 
       <section>
         <h2 className="mb-3 font-semibold">
-          历史批次(同时只有一个激活;激活即&quot;当天节点&quot;)
+          历史批次(同时只有一个激活;激活即&quot;当前下发批次&quot;)
         </h2>
-        {batches.length === 0 ? (
-          <p className="text-sm text-neutral-500">还没有批次。</p>
-        ) : (
-          <AdminTable
-            head={["ID", "日期", "标题", "数量", "状态", "创建时间", "操作"]}
-            rows={batches.map((b) => [
-              b.id,
-              <span key="d" className="font-mono text-xs">
-                {b.batchDate}
-              </span>,
-              b.title,
-              b.nodeCount,
-              b.isActive ? (
-                <Badge key="a" variant="success">
-                  已激活
-                </Badge>
-              ) : (
-                <Badge key="a" variant="secondary">
-                  未激活
-                </Badge>
-              ),
-              formatDate(b.createdAt),
-              <BatchActivateButton key="op" id={b.id} active={b.isActive} />,
-            ])}
-          />
-        )}
+        <AdminTable
+          head={["ID", "日期", "标题", "数量", "状态", "创建时间", "操作"]}
+          rows={batches.map((b) => [
+            b.id,
+            <span key="d" className="ark-mono text-xs">
+              {b.batchDate}
+            </span>,
+            b.title,
+            b.nodeCount,
+            b.isActive ? (
+              <StatusChip key="a" tone="green">已激活</StatusChip>
+            ) : (
+              <StatusChip key="a">未激活</StatusChip>
+            ),
+            formatDate(b.createdAt),
+            <BatchActivateButton key="op" id={b.id} active={b.isActive} />,
+          ])}
+        />
       </section>
     </div>
   );

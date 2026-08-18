@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
 import { apiPost } from "@/components/api";
 import CopyField from "@/components/CopyField";
 
@@ -41,24 +39,32 @@ export default function CodeLookupForm() {
 
   return (
     <div className="space-y-3">
-      <Input
-        label="订单号 / 注册码"
-        placeholder="ARK20260818XXXXXX"
-        value={query}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-      />
+      <div>
+        <label className="ark-label" htmlFor="lookup-q">订单号 / 注册码</label>
+        <input
+          id="lookup-q"
+          className="ark-input ark-mono"
+          placeholder="ARK20260818XXXXXX"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       {error ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-red) 12%, transparent)",
+            color: "var(--ark-red)",
+          }}
+        >
           {error}
         </div>
       ) : null}
-      <Button variant="secondary" loading={loading} onClick={submit}>
-        查询
-      </Button>
+      <button className="ark-btn ark-btn-ghost" disabled={loading} onClick={submit}>
+        {loading ? "查询中…" : "查询"}
+      </button>
       {code ? (
-        <div className="space-y-2">
-          <CopyField value={code} label={status === "redeemed" ? "注册码(已兑换)" : "你的注册码"} />
-        </div>
+        <CopyField value={code} label={status === "redeemed" ? "注册码(已兑换)" : "你的注册码"} />
       ) : null}
     </div>
   );

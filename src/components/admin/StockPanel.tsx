@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
 import { apiPost } from "@/components/api";
 
 export default function StockPanel({ stock }: { stock: number }) {
@@ -31,42 +29,36 @@ export default function StockPanel({ stock }: { stock: number }) {
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold">注册码库存</div>
-        <div className="text-2xl font-bold">{stock}</div>
+    <div className="ark-card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <div className="ark-label">注册码库存(用户可买的名额)</div>
+        <div className="ark-display text-3xl font-extrabold" style={{ color: stock > 0 ? "var(--ark-green)" : "var(--ark-red)" }}>
+          {stock}
+        </div>
+        <p className="mt-1 text-xs" style={{ color: "var(--ark-muted)" }}>
+          用户购买时原子扣减并自动发码;超时未付自动回补。
+        </p>
       </div>
       <div className="flex items-end gap-2">
-        <div className="w-32">
-          <Input
-            label="调整数量"
+        <div className="w-28">
+          <label className="ark-label" htmlFor="stock-delta">调整数量</label>
+          <input
+            id="stock-delta"
+            className="ark-input"
             type="number"
             min={1}
             value={delta}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setDelta(e.target.value)
-            }
+            onChange={(e) => setDelta(e.target.value)}
           />
         </div>
-        <Button
-          variant="primary"
-          loading={loading === "add"}
-          onClick={() => change(1)}
-        >
-          加库存
-        </Button>
-        <Button
-          variant="secondary"
-          loading={loading === "sub"}
-          onClick={() => change(-1)}
-        >
-          减库存
-        </Button>
+        <button className="ark-btn ark-btn-primary" disabled={loading !== null} onClick={() => change(1)}>
+          {loading === "add" ? "…" : "加库存"}
+        </button>
+        <button className="ark-btn ark-btn-ghost" disabled={loading !== null} onClick={() => change(-1)}>
+          {loading === "sub" ? "…" : "减库存"}
+        </button>
       </div>
-      <p className="text-xs text-neutral-400">
-        用户购买时系统从库存原子扣减并自动生成注册码;超时未付自动回补。
-      </p>
-      {msg ? <div className="text-sm text-red-600">{msg}</div> : null}
+      {msg ? <div className="text-sm" style={{ color: "var(--ark-red)" }}>{msg}</div> : null}
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
 import { apiPost } from "@/components/api";
 
 export function GiftCodeButton() {
@@ -27,9 +26,9 @@ export function GiftCodeButton() {
   };
 
   return (
-    <Button variant="secondary" loading={loading} onClick={create}>
-      生成 gift 码
-    </Button>
+    <button className="ark-btn ark-btn-ghost ark-btn-sm" disabled={loading} onClick={create}>
+      {loading ? "生成中…" : "生成 gift 码"}
+    </button>
   );
 }
 
@@ -51,8 +50,8 @@ export function VoidCodeButton({ id }: { id: number }) {
   };
 
   return (
-    <Button variant="ghost" size="xs" loading={loading} onClick={voidCode}>
-      作废
-    </Button>
+    <button className="ark-btn ark-btn-danger ark-btn-sm" disabled={loading} onClick={voidCode}>
+      {loading ? "…" : "作废"}
+    </button>
   );
 }

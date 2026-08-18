@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
 import { apiPost } from "@/components/api";
 
 export default function BatchForm({
@@ -38,7 +36,7 @@ export default function BatchForm({
         batchDate,
         force,
       });
-      setMsg(`已创建批次,共 ${res.count} 个节点。去下方列表点"激活"。`);
+      setMsg(`已创建批次(共 ${res.count} 个节点),到下方列表点「激活」生效。`);
       setText("");
       setForce(false);
       setNeedForce(false);
@@ -53,57 +51,79 @@ export default function BatchForm({
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-      <div className="font-semibold">上传节点批次(一行一个)</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          label="批次标题(可选)"
-          placeholder="如:8月18日 30 个"
-          value={title}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
-        />
-        <Input
-          label="批次日期(用于节点命名 Arkadia-日期-序号)"
-          type="date"
-          value={batchDate}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBatchDate(e.target.value)}
-        />
+    <div className="ark-card space-y-4 p-6">
+      <div className="font-semibold">上传节点批次</div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="ark-label" htmlFor="batch-title">批次标题(可选)</label>
+          <input
+            id="batch-title"
+            className="ark-input"
+            placeholder="如:8月18日 30 个"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="ark-label" htmlFor="batch-date">批次日期(节点命名 Arkadia-日期-序号)</label>
+          <input
+            id="batch-date"
+            className="ark-input ark-mono"
+            type="date"
+            value={batchDate}
+            onChange={(e) => setBatchDate(e.target.value)}
+          />
+        </div>
       </div>
       <div>
-        <div className="mb-1 text-sm text-neutral-500">
-          节点列表(vless:// / hysteria2:// / vmess:// / ss:// 等,一行一个;也支持整段 base64)
-        </div>
+        <label className="ark-label" htmlFor="batch-text">
+          节点列表 —— 一行一个(vless:// / hysteria2:// / vmess:// / ss:// 等;支持整段 base64)
+        </label>
         <textarea
-          className="h-48 w-full rounded-md border border-neutral-300 bg-transparent p-3 font-mono text-xs dark:border-neutral-600"
+          id="batch-text"
+          className="ark-input ark-mono h-48 resize-y text-xs"
           placeholder={"vless://...\nhysteria2://...\nss://..."}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <div className="mt-1 text-xs text-neutral-400">
-          期望 {expectedCount} 个节点,数量不符会被拦截。
+        <div className="mt-1.5 flex items-center justify-between text-xs" style={{ color: "var(--ark-muted)" }}>
+          <span>期望 {expectedCount} 个;数量不符会被拦截</span>
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={force}
+              onChange={(e) => setForce(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[var(--ark-accent)]"
+            />
+            强制上传
+          </label>
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={force}
-          onChange={(e) => setForce(e.target.checked)}
-        />
-        强制上传(数量不符也提交)
-      </label>
       {err ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-red) 12%, transparent)",
+            color: "var(--ark-red)",
+          }}
+        >
           {err}
         </div>
       ) : null}
       {msg ? (
-        <div className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+        <div
+          className="rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "color-mix(in srgb, var(--ark-green) 12%, transparent)",
+            color: "var(--ark-green)",
+          }}
+        >
           {msg}
         </div>
       ) : null}
-      <Button variant="primary" loading={loading} onClick={submit}>
-        {needForce && !force ? "数量不符 — 勾选强制后重试" : "创建批次"}
-      </Button>
+      <button className="ark-btn ark-btn-primary" disabled={loading} onClick={submit}>
+        {loading ? "上传中…" : needForce && !force ? "数量不符 — 勾选强制后重试" : "创建批次"}
+      </button>
     </div>
   );
 }

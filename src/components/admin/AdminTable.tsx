@@ -1,9 +1,6 @@
 "use client";
 
-import { Table } from "@cloudflare/kumo/components/table";
-import { LayerCard } from "@cloudflare/kumo/components/layer-card";
-
-/** 管理端通用表格:Kumo Table + LayerCard,横向滚动适配手机 */
+/** 管理端通用表格:自绘 ark-table,横向滚动适配手机 */
 export default function AdminTable({
   head,
   rows,
@@ -11,26 +8,33 @@ export default function AdminTable({
   head: string[];
   rows: React.ReactNode[][];
 }) {
+  if (rows.length === 0) {
+    return (
+      <div className="ark-card p-6 text-center text-sm" style={{ color: "var(--ark-muted)" }}>
+        暂无数据
+      </div>
+    );
+  }
   return (
-    <LayerCard className="w-full overflow-x-auto p-0">
-      <Table>
-        <Table.Header>
-          <Table.Row>
+    <div className="ark-card ark-scroll-x">
+      <table className="ark-table">
+        <thead>
+          <tr>
             {head.map((h) => (
-              <Table.Head key={h}>{h}</Table.Head>
+              <th key={h}>{h}</th>
             ))}
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
+          </tr>
+        </thead>
+        <tbody>
           {rows.map((row, i) => (
-            <Table.Row key={i}>
+            <tr key={i}>
               {row.map((cell, j) => (
-                <Table.Cell key={j}>{cell}</Table.Cell>
+                <td key={j}>{cell}</td>
               ))}
-            </Table.Row>
+            </tr>
           ))}
-        </Table.Body>
-      </Table>
-    </LayerCard>
+        </tbody>
+      </table>
+    </div>
   );
 }

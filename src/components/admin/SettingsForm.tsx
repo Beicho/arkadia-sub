@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@cloudflare/kumo/components/button";
-import { Input } from "@cloudflare/kumo/components/input";
 import { apiPost } from "@/components/api";
 
 export type SettingsValues = {
@@ -64,33 +62,42 @@ export default function SettingsForm({ initial }: { initial: SettingsValues }) {
   };
 
   return (
-    <div className="space-y-4 rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+    <div className="ark-card space-y-5 p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         {NUM_FIELDS.map((f) => (
-          <Input
-            key={f.key}
-            label={f.label}
-            type="number"
-            value={String(values[f.key])}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setValues((v) => ({ ...v, [f.key]: Number(e.target.value) }))
-            }
-          />
+          <div key={f.key}>
+            <label className="ark-label" htmlFor={`set-${f.key}`}>
+              {f.label}
+              <span className="ml-1 text-xs" style={{ color: "var(--ark-muted)", opacity: 0.7 }}>
+                ({f.hint})
+              </span>
+            </label>
+            <input
+              id={`set-${f.key}`}
+              className="ark-input ark-mono"
+              type="number"
+              value={String(values[f.key])}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, [f.key]: Number(e.target.value) }))
+              }
+            />
+          </div>
         ))}
       </div>
-      <p className="text-xs text-neutral-400">
-        {NUM_FIELDS.map((f) => `${f.label}:${f.hint}`).join(" | ")}
-      </p>
-      <Input
-        label="管理员 LinuxDo 用户名(逗号分隔)"
-        value={admins}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdmins(e.target.value)}
-      />
-      {err ? <div className="text-sm text-red-600">{err}</div> : null}
-      {msg ? <div className="text-sm text-green-600">{msg}</div> : null}
-      <Button variant="primary" loading={loading} onClick={save}>
-        保存设置
-      </Button>
+      <div>
+        <label className="ark-label" htmlFor="set-admins">管理员 LinuxDo 用户名(逗号分隔)</label>
+        <input
+          id="set-admins"
+          className="ark-input"
+          value={admins}
+          onChange={(e) => setAdmins(e.target.value)}
+        />
+      </div>
+      {err ? <div className="text-sm" style={{ color: "var(--ark-red)" }}>{err}</div> : null}
+      {msg ? <div className="text-sm" style={{ color: "var(--ark-green)" }}>{msg}</div> : null}
+      <button className="ark-btn ark-btn-primary" disabled={loading} onClick={save}>
+        {loading ? "保存中…" : "保存设置"}
+      </button>
     </div>
   );
 }
