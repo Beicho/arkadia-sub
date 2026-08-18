@@ -158,9 +158,23 @@ export default async function DashboardPage({
               </LinkButton>
               <ResetTokenButton />
             </div>
+            <div
+              className="mt-4 space-y-1.5 rounded-xl p-3 text-xs leading-relaxed"
+              style={{ background: "var(--ark-surface-2)", color: "var(--ark-muted)" }}
+            >
+              <div className="font-semibold" style={{ color: "var(--ark-text)" }}>
+                怎么拿到新节点?
+              </div>
+              <div>1. 复制上面的链接,在客户端(FlClash/v2rayN 等)里添加为「订阅」</div>
+              <div>
+                2. 站长上传新批次后,在客户端里点「更新订阅」(多数客户端也会自动更新)——
+                新节点自动到手,扣 1 次更新额度
+              </div>
+              <div>3. 看上方「站长最近更新」日期,就知道现在刷会拿到几号的批次</div>
+            </div>
             <p className="mt-auto pt-3 text-xs" style={{ color: "var(--ark-muted)" }}>
               <LinkIcon size={12} className="mr-1 inline" />
-              填进客户端&quot;订阅&quot;即可;泄露给他人请立即重置链接。
+              泄露给他人请立即重置链接(旧链接立刻作废)。
             </p>
           </LayerCard>
         </section>
