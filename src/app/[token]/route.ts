@@ -145,6 +145,8 @@ export async function GET(
       return new Response(yaml, {
         headers: {
           "Content-Type": "text/yaml; charset=utf-8",
+          // FlClash 等客户端用该文件名作为订阅名称
+          "Content-Disposition": `attachment; filename="Arkadia_${batch.batchDate}.yaml"`,
           "Cache-Control": "no-store",
           "Subscription-Userinfo": userinfo,
           "Profile-Update-Interval": "24",
@@ -172,6 +174,7 @@ export async function GET(
   return new Response(payload, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
+      "Content-Disposition": `attachment; filename="Arkadia_${batch.batchDate}.txt"`,
       "Cache-Control": "no-store",
       "Subscription-Userinfo": userinfo,
       "Profile-Update-Interval": "24",
