@@ -80,10 +80,10 @@ export function parseSocksLine(raw: string): SocksEntry | null {
     }
   }
 
-  // 国家 = 括号外第一个非「入库」开头的词
+  // 国家 = 括号外第一个非「入库」开头的词(空白/|/, 均为分隔符)
   let country: string | null = null;
   const noBrackets = meta.replace(/\[[^\[\]]*\]/g, " ");
-  for (const tok of noBrackets.split(/\s+/).filter(Boolean)) {
+  for (const tok of noBrackets.split(/[\s|,]+/).filter(Boolean)) {
     if (tok.startsWith("入库")) continue;
     country = tok;
     break;
