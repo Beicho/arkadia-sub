@@ -2,7 +2,7 @@ import { countDistinct, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditLogs, subPulls, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 import { fingerprintClusters } from "@/lib/fingerprint";
 import { formatDate } from "@/lib/time";
 

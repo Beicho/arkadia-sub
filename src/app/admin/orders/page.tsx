@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { orders, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import ReconcileButton from "@/components/admin/ReconcileButton";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 
 export const dynamic = "force-dynamic";
 

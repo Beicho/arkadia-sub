@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Toasty } from "@cloudflare/kumo";
+import { Toasty } from "@/components/kumo";
 import "./app.css";
 
 export const metadata: Metadata = {

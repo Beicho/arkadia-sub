@@ -2,8 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db/client";
 import { orders } from "@/db/schema";
-import { Badge } from "@cloudflare/kumo/components/badge";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Badge, Banner } from "@/components/kumo";
+
 import { CheckCircleIcon, GlobeIcon, InfoIcon } from "@phosphor-icons/react";
 import CopyField from "@/components/CopyField";
 import Fingerprint from "@/components/Fingerprint";

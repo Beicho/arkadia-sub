@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, redeemCodes } from "@/db/schema";
-import { Badge } from "@cloudflare/kumo/components/badge";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Badge, Banner } from "@/components/kumo";
+
 import { CheckCircleIcon, InfoIcon } from "@phosphor-icons/react";
 import CodeLookupForm from "@/components/CodeLookupForm";
 import CopyField from "@/components/CopyField";

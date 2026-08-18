@@ -4,7 +4,7 @@ import { redeemCodes, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import { GiftCodeButton, VoidCodeButton } from "@/components/admin/CodesActions";
 import StockPanel from "@/components/admin/StockPanel";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 
 export const dynamic = "force-dynamic";
 

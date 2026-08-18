@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import UserActions from "@/components/admin/UserActions";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 import { formatDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";

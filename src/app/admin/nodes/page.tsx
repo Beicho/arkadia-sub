@@ -4,7 +4,7 @@ import { nodeBatches } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import BatchActivateButton from "@/components/admin/BatchActivateButton";
 import BatchForm from "@/components/admin/BatchForm";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 import { getSettings } from "@/lib/settings";
 import { formatDate, shanghaiToday } from "@/lib/time";
 

@@ -1,18 +1,21 @@
-import { Banner } from "@cloudflare/kumo/components/banner";
-import { WarningIcon } from "@phosphor-icons/react";
-
 export const metadata = { title: "服务条款 — Arkadia" };
 
 export default function TosPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10">
       <h1 className="mb-6 text-2xl font-bold">服务条款</h1>
-      <Banner
-        icon={<WarningIcon weight="fill" />}
-        variant="error"
-        title="重要:不退款"
-        description="本服务为虚拟订阅商品,一经支付,任何情况下不退款(包括但不限于:未使用、不想用了、节点不满意、账号被封禁、订阅到期)。下单前请务必确认需求。"
-      />
+      <div
+        role="alert"
+        className="mb-8 flex gap-3 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950"
+      >
+        <span aria-hidden className="text-xl">⚠️</span>
+        <div>
+          <div className="font-semibold text-red-800 dark:text-red-200">重要:不退款</div>
+          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+            本服务为虚拟订阅商品,一经支付,任何情况下不退款(包括但不限于:未使用、不想用了、节点不满意、账号被封禁、订阅到期)。下单前请务必确认需求。
+          </p>
+        </div>
+      </div>
 
       <article className="mt-8 space-y-6 text-sm leading-7 text-neutral-700 dark:text-neutral-300">
         <section>

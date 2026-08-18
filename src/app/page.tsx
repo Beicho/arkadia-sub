@@ -1,5 +1,5 @@
-import { Badge } from "@cloudflare/kumo/components/badge";
-import { Banner } from "@cloudflare/kumo/components/banner";
+import { Badge, Banner } from "@/components/kumo";
+
 import { GlobeIcon, ShieldCheckIcon, DatabaseIcon, WarningIcon } from "@phosphor-icons/react";
 import BuyActivationCard from "@/components/BuyActivationCard";
 import DevLoginPanel from "@/components/DevLoginPanel";

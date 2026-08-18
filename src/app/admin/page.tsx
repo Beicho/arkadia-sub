@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { orders, subPulls, users } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import StatCards from "@/components/admin/StatCards";
-import { Badge } from "@cloudflare/kumo/components/badge";
+import { Badge } from "@/components/kumo";
 import { getSettings } from "@/lib/settings";
 import { shanghaiDayStart } from "@/lib/time";
 
