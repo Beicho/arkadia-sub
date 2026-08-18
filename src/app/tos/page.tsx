@@ -6,7 +6,7 @@ export const metadata = { title: "服务条款 — Arkadia" };
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "1. 服务内容",
-    body: "Arkadia 提供订阅制的代理节点列表。站长不定期(通常每天)测试并更新节点批次;已付费用户通过专属订阅链接获取最新批次节点,节点名称形如 Arkadia-20260818-01,标明批次日期与序号。",
+    body: "Arkadia 提供订阅制的代理节点列表。站长不定期(通常每天)测试并更新节点批次;已付费用户通过专属订阅链接获取最新批次节点。订阅中可能不定期免费追加 SOCKS5 福利备用节点(名称带 [SOCKS5·家宽] 等标记),不额外收费、可用性不作保证;同一批次日期内多次更新订阅不会重复消耗更新额度。",
   },
   {
     title: "2. 计费",

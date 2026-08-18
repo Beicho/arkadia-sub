@@ -10,11 +10,13 @@ import {
   UsersIcon,
   ShieldWarningIcon,
   GearIcon,
+  GiftIcon,
 } from "@phosphor-icons/react";
 
 const NAV = [
   { href: "/admin", label: "总览", icon: HouseIcon, exact: true },
   { href: "/admin/nodes", label: "节点批次", icon: DatabaseIcon },
+  { href: "/admin/socks", label: "SOCKS5 福利池", icon: GiftIcon },
   { href: "/admin/orders", label: "订单", icon: ReceiptIcon },
   { href: "/admin/codes", label: "注册码 / 库存", icon: TicketIcon },
   { href: "/admin/users", label: "用户", icon: UsersIcon },

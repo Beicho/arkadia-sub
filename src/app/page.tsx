@@ -11,6 +11,7 @@ import {
   ClockIcon,
   DatabaseIcon,
   WarningIcon,
+  GiftIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import BuyActivationCard from "@/components/BuyActivationCard";
 import DevLoginPanel from "@/components/DevLoginPanel";
@@ -193,12 +194,18 @@ export default async function Home() {
           </LayerCard>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           <Banner
             icon={<WarningIcon weight="fill" />}
             variant="alert"
             title="不退款声明"
             description="本服务为虚拟商品,支付后一律不退款(无论是否使用)。购买即视为同意《服务条款》。"
+          />
+          <Banner
+            icon={<GiftIcon weight="fill" />}
+            variant="secondary"
+            title="福利节点"
+            description="可能会不定期向订阅中免费追加 SOCKS5 备用节点(如封锁严重时),不额外收取 LDC,可用性不作保证;同一天内更新多次不重复消耗额度。"
           />
         </div>
       </section>

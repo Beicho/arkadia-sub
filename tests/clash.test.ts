@@ -66,6 +66,21 @@ describe("uriToClashProxy", () => {
     expect(p.find(([k]) => k === "password")![1]).toBe("fakepass");
   });
 
+  it("socks5 → type/server/port,无认证不输出 username", () => {
+    const p = uriToClashProxy("socks5://1.2.3.4:1080#s5", "N6")!;
+    expect(p.find(([k]) => k === "type")![1]).toBe("socks5");
+    expect(p.find(([k]) => k === "server")![1]).toBe("1.2.3.4");
+    expect(p.find(([k]) => k === "port")![1]).toBe(1080);
+    expect(p.find(([k]) => k === "udp")![1]).toBe(true);
+    expect(p.find(([k]) => k === "username")).toBeUndefined();
+  });
+
+  it("socks5 带认证 → username/password", () => {
+    const p = uriToClashProxy("socks5://u:p%40ss@5.6.7.8:1080#s5", "N7")!;
+    expect(p.find(([k]) => k === "username")![1]).toBe("u");
+    expect(p.find(([k]) => k === "password")![1]).toBe("p@ss");
+  });
+
   it("不认识的协议返回 null", () => {
     expect(uriToClashProxy("tuic://x@y:1", "N")).toBeNull();
   });

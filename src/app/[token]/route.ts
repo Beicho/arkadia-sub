@@ -83,14 +83,17 @@ export async function GET(
     (freeUntil ?? new Date(Date.now() + 30 * 86_400_000)).getTime() / 1000,
   )}`;
 
-  // 额度模式:拉到新批次才扣 1 额度;重复拉同一批不扣
+  // 额度模式:拉到"新日期"的批次才扣 1 额度。
+  // 同一 batchDate 内站长补传/福利加量(如 SOCKS5),用户刷新不重复扣。
+  const dateChanged = user.lastPulledBatchDate !== batch.batchDate;
   if (!freeUntil) {
-    if (batch.id !== user.lastPulledBatchId) {
+    if (dateChanged) {
       const consumed = await db
         .update(users)
         .set({
           updateCredits: sql`${users.updateCredits} - 1`,
           lastPulledBatchId: batch.id,
+          lastPulledBatchDate: batch.batchDate,
         })
         .where(
           and(
@@ -105,15 +108,18 @@ export async function GET(
           402,
         );
       }
-    }
-  } else {
-    // 免费期内:同步 lastPulledBatchId,避免期后转额度模式重复扣
-    if (batch.id !== user.lastPulledBatchId) {
+    } else if (batch.id !== user.lastPulledBatchId) {
       await db
         .update(users)
         .set({ lastPulledBatchId: batch.id })
         .where(eq(users.id, user.id));
     }
+  } else if (batch.id !== user.lastPulledBatchId) {
+    // 免费期内:同步标记,避免期后转额度模式重复扣
+    await db
+      .update(users)
+      .set({ lastPulledBatchId: batch.id, lastPulledBatchDate: batch.batchDate })
+      .where(eq(users.id, user.id));
   }
 
   // 风控统计

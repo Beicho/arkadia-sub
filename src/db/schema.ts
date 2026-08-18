@@ -31,6 +31,8 @@ export const users = pgTable("users", {
   // 更新额度:3 LDC/个,拉新批次扣 1,不随时间过期
   updateCredits: integer("update_credits").notNull().default(0),
   lastPulledBatchId: integer("last_pulled_batch_id"),
+  // 最近拉取的批次日期:同日期批次(含站长当天补传)不重复扣额度
+  lastPulledBatchDate: date("last_pulled_batch_date", { mode: "string" }),
   noRefundAcceptedAt: timestamp("no_refund_accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -142,6 +144,33 @@ export const deviceFingerprints = pgTable(
     uniqueIndex("device_fp_user_hash_uq").on(t.userId, t.fpHash),
     index("device_fp_hash_idx").on(t.fpHash),
     index("device_fp_devid_idx").on(t.deviceId),
+  ],
+);
+
+export const socksPool = pgTable(
+  "socks_pool",
+  {
+    id: serial("id").primaryKey(),
+    host: text("host").notNull(),
+    port: integer("port").notNull(),
+    line: text("line").notNull(),
+    // ["原生IP","家宽",...] 标签
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    country: text("country"),
+    region: text("region"),
+    provider: text("provider"),
+    riskScore: integer("risk_score"),
+    // untested | ok | fail
+    status: text("status").notNull().default("untested"),
+    latencyMs: integer("latency_ms"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("socks_pool_host_port_uq").on(t.host, t.port),
+    index("socks_pool_status_idx").on(t.status),
   ],
 );
 

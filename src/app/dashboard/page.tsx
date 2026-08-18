@@ -176,6 +176,10 @@ export default async function DashboardPage({
               <LinkIcon size={12} className="mr-1 inline" />
               泄露给他人请立即重置链接(旧链接立刻作废)。
             </p>
+            <p className="pt-2 text-xs" style={{ color: "var(--ark-muted)" }}>
+              订阅中可能包含免费追加的 SOCKS5 福利节点(名称带 [SOCKS5·家宽] 等标记),
+              不额外收费;同一天内多次更新不重复扣额度。
+            </p>
           </LayerCard>
         </section>
       )}
