@@ -269,7 +269,7 @@ export default function SocksPoolPanel() {
             icon={PlusIcon}
             loading={busy === "merge"}
             disabled={run?.running || (status?.summary.ok ?? 0) === 0}
-            onClick={doMerge}
+            onClick={() => doMerge()}
           >
             挑 30 个并入今日批次
           </Button>

@@ -91,7 +91,7 @@ export default function BuyActivationCard({
         </div>
       ) : null}
 
-      <Button variant="primary" className="mt-auto w-full" loading={loading} disabled={soldOut} onClick={buy}>
+      <Button variant="primary" className="ark-pop mt-auto w-full" loading={loading} disabled={soldOut} onClick={buy}>
         {soldOut ? "暂无库存,等补货" : `购买注册码 · ${price} LDC`}
       </Button>
       <p className="text-center text-xs" style={{ color: "var(--ark-muted)" }}>

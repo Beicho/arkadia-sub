@@ -39,14 +39,7 @@ export default async function Home() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
       {/* ===== 顶栏 ===== */}
-      <header
-        className="sticky top-0 z-40 -mx-4 mb-4 flex items-center justify-between border-b px-4 py-4 md:-mx-6 md:px-6"
-        style={{
-          borderColor: "var(--ark-border)",
-          background: "color-mix(in srgb, var(--ark-bg) 82%, transparent)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
+      <header className="ark-float-nav mb-6 mt-4 flex items-center justify-between px-5 py-3 md:px-6">
         <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>
           <span
             className="flex h-8 w-8 items-center justify-center rounded-lg"
@@ -94,7 +87,7 @@ export default async function Home() {
           付款激活后用你的专属订阅链接,随时刷出最新一批——订阅名自带日期,新鲜度一眼可辨。
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <LinkButton href="#pricing" variant="primary">
+          <LinkButton href="#pricing" variant="primary" className="ark-pop">
             购买注册码 · {s.activation_price} LDC
             <ArrowRightIcon size={15} />
           </LinkButton>

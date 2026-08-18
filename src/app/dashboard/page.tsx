@@ -65,7 +65,7 @@ export default async function DashboardPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
       <Fingerprint />
 
-      <header className="mb-8 flex items-center justify-between">
+      <header className="ark-float-nav mb-8 flex items-center justify-between px-5 py-3">
         <a href="/" className="flex items-center gap-2.5 no-underline" style={{ color: "var(--ark-text)" }}>
           <span
             className="flex h-8 w-8 items-center justify-center rounded-lg"

@@ -166,6 +166,54 @@ body {
 
 .ark-scroll-x { overflow-x: auto; }
 
+/* ===== 悬浮胶囊顶栏(QQ 弹弹) ===== */
+.ark-float-nav {
+  position: sticky;
+  top: 14px;
+  z-index: 40;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ark-border-strong) 80%, transparent);
+  background: color-mix(in srgb, var(--ark-bg) 68%, transparent);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow:
+    0 10px 30px -12px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  /* 弹性入场:从上方落下并轻微回弹过冲 */
+  animation: ark-nav-drop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: box-shadow 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ark-float-nav:hover {
+  box-shadow:
+    0 14px 38px -12px color-mix(in srgb, var(--ark-accent) 22%, rgba(0, 0, 0, 0.5)),
+    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ark-float-nav { animation: none; transition: none; }
+}
+@keyframes ark-nav-drop {
+  from {
+    transform: translateY(-18px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 弹性交互:悬停轻微上浮放大(过冲回弹),按下压缩 */
+.ark-pop {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ark-pop:hover {
+  transform: translateY(-1px) scale(1.04);
+}
+.ark-pop:active {
+  transform: scale(0.95);
+  transition-duration: 0.08s;
+}
+
 /* 长文本(订阅链接/单号)换行 */
 .break-anywhere { overflow-wrap: anywhere; }
 

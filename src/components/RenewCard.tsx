@@ -129,7 +129,7 @@ export default function RenewCard({
 
       <Button
         variant="primary"
-        className="w-full"
+        className="ark-pop w-full"
         loading={loading}
         disabled={!accept && !noRefundAccepted}
         onClick={pay}
