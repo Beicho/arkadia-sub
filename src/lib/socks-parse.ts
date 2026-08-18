@@ -136,11 +136,19 @@ export function socksNodeName(e: SocksEntry): string {
 
 function buildPlace(e: SocksEntry): string {
   if (!e.region) return e.country ?? e.host;
-  // 地区串首 token 通常是国家重复(如 "美国 得克萨斯州 休斯敦"),去重
-  const parts = e.region.split(/\s+/).filter(Boolean);
-  const uniq = parts.filter((p, i) => p !== e.country || i !== 0);
-  const tail = uniq.slice(-3).join("·");
-  return tail || (e.country ?? e.host);
+  let tokens = e.region.split(/\s+/).filter(Boolean);
+
+  // 在「—」分隔符或云商关键词处截断(云商信息由 provider 单独后缀,避免重复)
+  const cut = tokens.findIndex(
+    (t) => t === "—" || t === "-" || findProvider(t) !== null,
+  );
+  if (cut > 0) tokens = tokens.slice(0, cut);
+
+  // 连续重复 token 去重(如 "俄罗斯 莫斯科 莫斯科")
+  tokens = tokens.filter((t, i) => i === 0 || t !== tokens[i - 1]);
+
+  const place = tokens.slice(0, 3).join("·");
+  return place || (e.country ?? e.host);
 }
 
 /**
