@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Input, LayerCard, StatusChip } from "@/components/kumo";
-import { UploadSimpleIcon, LightningIcon, MergeIcon } from "@phosphor-icons/react";
+import { Button, LayerCard } from "@/components/kumo";
+import StatusChip from "@/components/admin/StatusChip";
+import { UploadSimpleIcon, LightningIcon, PlusIcon } from "@phosphor-icons/react";
 import { apiGet, apiPost } from "@/components/api";
 
 type Top = {
@@ -250,7 +251,7 @@ export default function SocksPoolPanel() {
           </Button>
           <Button
             variant="primary"
-            icon={MergeIcon}
+            icon={PlusIcon}
             loading={busy === "merge"}
             disabled={run?.running || (status?.summary.ok ?? 0) === 0}
             onClick={doMerge}
