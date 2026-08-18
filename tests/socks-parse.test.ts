@@ -67,6 +67,22 @@ describe("parseSocksLine", () => {
     expect(fw.country).toBe("韩国");
   });
 
+  it("元数据支持管道/逗号分隔与含@密码", () => {
+    const pipe = parseSocksLine(
+      "socks5://1.2.3.4:1080|[家宽]|美国|洛杉矶|入库:2026-08-18",
+    )!;
+    expect(pipe.host).toBe("1.2.3.4");
+    expect(pipe.residential).toBe(true);
+    expect(pipe.country).toBe("美国");
+    const comma = parseSocksLine("socks5://2.3.4.5:1080,家宽,日本,东京")!;
+    expect(comma.host).toBe("2.3.4.5");
+    const atPwd = parseSocksLine(
+      "socks5://user:pa@ss@3.4.5.6:1080 [家宽] 韩国 [韩国 首尔] 入库:t",
+    )!;
+    expect(atPwd.host).toBe("3.4.5.6");
+    expect(atPwd.residential).toBe(true);
+  });
+
   it("非 SOCKS5 协议不认", () => {
     expect(parseSocksLine("http://1.2.3.4:8080 [家宽] X [X]")).toBeNull();
     expect(parseSocksLine("socks4://1.2.3.4:1080 [家宽] X [X]")).toBeNull();

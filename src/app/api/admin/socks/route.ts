@@ -105,13 +105,18 @@ export async function POST(req: Request) {
     const parsed: ReturnType<typeof parseSocksLine>[] = [];
     let malformed = 0;
     let filteredOut = 0;
+    let inPoolSkipped = 0;
     const seen = new Set<string>();
+    const badSamples: string[] = [];
     const entries: NonNullable<ReturnType<typeof parseSocksLine>>[] = [];
 
     for (const line of text.split("\n")) {
       const e = parseSocksLine(line);
       if (!e) {
-        if (line.trim()) malformed++;
+        if (line.trim()) {
+          malformed++;
+          if (badSamples.length < 5) badSamples.push(line.trim().slice(0, 80));
+        }
         continue;
       }
       parsed.push(e);
@@ -123,6 +128,7 @@ export async function POST(req: Request) {
       if (seen.has(key)) continue;
       seen.add(key);
       entries.push(e);
+      void inPoolSkipped;
     }
 
     // 分批插入(500/批),冲突跳过
@@ -149,12 +155,14 @@ export async function POST(req: Request) {
       inserted += res.length;
     }
 
+    inPoolSkipped = Math.max(0, entries.length - inserted);
     await audit(admin.id, "socks_import", `inserted=${inserted}`, {
       totalLines: parsed.length + malformed,
       parsed: parsed.length,
       malformed,
       filteredOut,
       inserted,
+      inPoolSkipped,
     });
 
     return Response.json({
@@ -163,7 +171,14 @@ export async function POST(req: Request) {
       malformed,
       filteredOut,
       inserted,
-      message: `解析 ${parsed.length} 条:入库 ${inserted}(去重/跳过已存在),过滤掉 ${filteredOut} 条(非原生/家宽或风险≥10),脏行 ${malformed}`,
+      inPoolSkipped,
+      badSamples,
+      message:
+        `共 ${parsed.length + malformed} 行 → 识别 ${parsed.length} |` +
+        ` 过滤 ${filteredOut}(非原生/家宽或风险≥10)|` +
+        ` 文件内重复 ${parsed.length - filteredOut - entries.length} |` +
+        ` 池内已存在 ${inPoolSkipped} | 新入库 ${inserted} |` +
+        ` 未识别 ${malformed}`,
     });
   }
 

@@ -23,8 +23,9 @@ export type SocksEntry = {
  * authority = [user:pass@]host:port,后跟可选元数据。
  * http:// / https:// / socks4:// 等其他 scheme 明确不认。
  */
+// userinfo 贪婪到最后一个 @(密码可含 @);元数据允许空白/|/,分隔
 const AUTH_RE =
-  /^(?:socks5h?:\/\/)?(?:([^@\s:/]+):([^@\s:/]+)@)?([a-zA-Z0-9.\-]+):(\d{1,5})(?:\s+(.*))?$/;
+  /^(?:socks5h?:\/\/)?(?:([^@\s]+)@)?([a-zA-Z0-9.\-]+):(\d{1,5})(?:[\s|,]+(.*))?$/;
 const OTHER_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 /** 已知云服务商关键词(从地区串里识别,命中则进节点名) */
@@ -59,7 +60,9 @@ export function parseSocksLine(raw: string): SocksEntry | null {
 
   const m = AUTH_RE.exec(line);
   if (!m) return null;
-  const [, , , host, portStr, rest] = m;
+  const [, userinfo, host, portStr, rest] = m;
+  // userinfo 形如 user:pass 时拆开(仅当含 : 且不是纯 UUID 场景之外的凭证)
+  if (userinfo && !userinfo.includes(":")) return null; // 形如 user@host 的裸用户名按不认识处理
   const port = Number(portStr);
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
   const meta = rest ?? "";

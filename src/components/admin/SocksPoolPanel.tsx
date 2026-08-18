@@ -82,11 +82,15 @@ export default function SocksPoolPanel() {
     setErr(null);
     setMsg(null);
     try {
-      const r = await apiPost<{ message: string }>("/api/admin/socks", {
-        action: "import",
-        text,
-      });
-      setMsg(r.message);
+      const r = await apiPost<{ message: string; badSamples?: string[] }>(
+        "/api/admin/socks",
+        { action: "import", text },
+      );
+      setMsg(
+        r.badSamples?.length
+          ? `${r.message}\n\n未识别样本(发给开发者可修解析):\n${r.badSamples.join("\n")}`
+          : r.message,
+      );
       setText("");
       await refresh();
     } catch (e) {
