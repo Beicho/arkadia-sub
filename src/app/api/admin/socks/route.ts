@@ -8,12 +8,13 @@ import {
   parseSocksLine,
   pickBest,
   socksNodeName,
+  type SocksEntry,
 } from "@/lib/socks-parse";
 import { getSocksRunState, startSocksRun } from "@/lib/socks-runner";
 import { shanghaiToday } from "@/lib/time";
 
 /** 下发 URI:按代理协议生成 scheme;名字标注协议 */
-function proxyUri(b: { entry: { host: string; port: number; protocol: "socks5" | "http" } }): string {
+function proxyUri(b: { entry: SocksEntry }): string {
   const scheme = b.entry.protocol === "http" ? "http" : "socks5";
   return `${scheme}://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`;
 }
