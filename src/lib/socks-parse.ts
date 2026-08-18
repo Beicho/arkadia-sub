@@ -23,9 +23,10 @@ export type SocksEntry = {
  * authority = [user:pass@]host:port,后跟可选元数据。
  * http:// / https:// / socks4:// 等其他 scheme 明确不认。
  */
-// userinfo 贪婪到最后一个 @(密码可含 @);元数据允许空白/|/,分隔
+// host:port + 可选元数据(空白/|/,分隔);userinfo 单独用 rfind('@') 剥离(密码可含 @)
 const AUTH_RE =
-  /^(?:socks5h?:\/\/)?(?:([^@\s]+)@)?([a-zA-Z0-9.\-]+):(\d{1,5})(?:[\s|,]+(.*))?$/;
+  /^([a-zA-Z0-9.\-]+):(\d{1,5})(?:[\s|,]+(.*))?$/;
+const SCHEME_RE = /^socks5h?:\/\//i;
 const OTHER_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 /** 已知云服务商关键词(从地区串里识别,命中则进节点名) */
@@ -53,16 +54,24 @@ const PROVIDER_KEYWORDS = [
 
 /** 解析单行;格式不符返回 null(容错:跳过脏行,不抛错) */
 export function parseSocksLine(raw: string): SocksEntry | null {
-  const line = raw.trim();
+  let line = raw.trim();
   if (!line) return null;
   // 其他协议(http/socks4 等)明确不认,避免误测
-  if (OTHER_SCHEME_RE.test(line) && !/^socks5h?:\/\//i.test(line)) return null;
+  if (OTHER_SCHEME_RE.test(line) && !SCHEME_RE.test(line)) return null;
+  if (SCHEME_RE.test(line)) line = line.replace(SCHEME_RE, "");
 
-  const m = AUTH_RE.exec(line);
+  // userinfo:从右找最后一个 @ 剥离(密码可含 @);裸用户名(无冒号)不认识
+  let body = line;
+  const at = body.lastIndexOf("@");
+  if (at >= 0) {
+    const userinfo = body.slice(0, at);
+    if (!userinfo.includes(":")) return null;
+    body = body.slice(at + 1);
+  }
+
+  const m = AUTH_RE.exec(body);
   if (!m) return null;
-  const [, userinfo, host, portStr, rest] = m;
-  // userinfo 形如 user:pass 时拆开(仅当含 : 且不是纯 UUID 场景之外的凭证)
-  if (userinfo && !userinfo.includes(":")) return null; // 形如 user@host 的裸用户名按不认识处理
+  const [, host, portStr, rest] = m;
   const port = Number(portStr);
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
   const meta = rest ?? "";
