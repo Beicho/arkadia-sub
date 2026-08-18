@@ -18,7 +18,7 @@ export default function AdminTable({
     );
   }
   return (
-    <LayerCard className="w-full overflow-x-auto p-0">
+    <LayerCard className="ark-card-lift w-full overflow-x-auto p-0">
       <Table>
         <Table.Header>
           <Table.Row>

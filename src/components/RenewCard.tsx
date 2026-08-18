@@ -39,7 +39,7 @@ export default function RenewCard({
   const amount = credits * pricePerUpdate;
 
   return (
-    <LayerCard className="flex flex-col gap-4 p-6">
+    <LayerCard className="ark-card-lift flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
           <CoinsIcon size={18} style={{ color: "var(--ark-accent)" }} />

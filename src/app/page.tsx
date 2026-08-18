@@ -71,7 +71,7 @@ export default async function Home() {
       </header>
 
       {/* ===== Hero ===== */}
-      <section className="pb-14 pt-10 text-center md:pb-20 md:pt-16">
+      <section className="ark-rise pb-14 pt-10 text-center md:pb-20 md:pt-16">
         <Badge variant="info" className="mb-6">
           <span className="flex items-center gap-1">
             <LightningIcon size={13} weight="fill" /> LinuxDo 生态 · 每日人工实测
@@ -127,10 +127,10 @@ export default async function Home() {
       </section>
 
       {/* ===== 定价 ===== */}
-      <section id="pricing" className="pb-16">
+      <section id="pricing" className="ark-rise ark-rise-2 pb-16">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <div className="ark-display text-xl font-bold md:text-2xl">定价</div>
+            <h2 className="ark-h2 ark-display text-xl font-bold md:text-2xl">定价</h2>
             <div className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
               一次性注册,之后按需买更新额度——不更新就不用花钱。
             </div>

@@ -39,6 +39,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="antialiased">
+        <div className="ark-signal-strip" aria-hidden="true" />
         <Toasty>{children}</Toasty>
       </body>
     </html>

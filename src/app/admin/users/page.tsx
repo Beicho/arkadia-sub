@@ -13,7 +13,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="ark-display text-xl font-bold">用户</h1>
+      <h1 class="ark-h2 ark-display text-xl font-bold">用户</h1>
       <AdminTable
         head={["用户", "信任级", "角色", "状态", "激活", "免费期至", "额度", "最近登录", "操作"]}
         rows={rows.map((u) => [

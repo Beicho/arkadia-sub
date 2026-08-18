@@ -48,7 +48,7 @@ export default function BuyActivationCard({
   const soldOut = stock <= 0;
 
   return (
-    <LayerCard className="flex flex-col gap-4 p-6">
+    <LayerCard className="ark-card-lift flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
           <TicketIcon size={18} style={{ color: "var(--ark-accent)" }} />
@@ -62,7 +62,7 @@ export default function BuyActivationCard({
       </div>
 
       <div className="flex items-baseline gap-1.5">
-        <span className="ark-display text-4xl font-extrabold">{price}</span>
+        <span className="ark-display ark-num text-4xl font-extrabold">{price}</span>
         <span className="text-sm" style={{ color: "var(--ark-muted)" }}>LDC</span>
       </div>
 

@@ -51,7 +51,7 @@ export default async function AdminFraudPage() {
       <h1 className="text-xl font-bold">风控</h1>
 
       <section>
-        <h2 className="mb-3 font-semibold">
+        <h2 class="ark-h2 mb-3">
           浏览器簇(同随机设备 ID ≥2 账号 —— 强信号,自动封禁的唯一依据)
         </h2>
         {dClusters.length === 0 ? (
@@ -80,7 +80,7 @@ export default async function AdminFraudPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">
+        <h2 class="ark-h2 mb-3">
           硬件指纹簇(弱信号,仅供参考 —— 同型号设备会重复,勿据此封人)
         </h2>
         {hwClusters.length === 0 ? (
@@ -107,7 +107,7 @@ export default async function AdminFraudPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">分发嫌疑(7 天内 ≥3 个不同 IP 拉取)</h2>
+        <h2 class="ark-h2 mb-3">分发嫌疑(7 天内 ≥3 个不同 IP 拉取)</h2>
         {suspicious.length === 0 ? (
           <p className="text-sm text-neutral-500">暂无。</p>
         ) : (
@@ -125,7 +125,7 @@ export default async function AdminFraudPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">自动封禁记录</h2>
+        <h2 class="ark-h2 mb-3">自动封禁记录</h2>
         {autoBans.length === 0 ? (
           <p className="text-sm text-neutral-500">暂无自动封禁。</p>
         ) : (
@@ -145,7 +145,7 @@ export default async function AdminFraudPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">最近拉取日志(100 条)</h2>
+        <h2 class="ark-h2 mb-3">最近拉取日志(100 条)</h2>
         {recentPulls.length === 0 ? (
           <p className="text-sm text-neutral-500">暂无拉取。</p>
         ) : (

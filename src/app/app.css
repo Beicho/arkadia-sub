@@ -166,6 +166,46 @@ body {
 
 .ark-scroll-x { overflow-x: auto; }
 
+/* ===== Kumo Sidebar 布局补丁 =====
+   组件自带 flex 布局与移动端抽屉(fixed+translate),但移动端需要:
+   1. wrapper 改纵向,让顶栏 + 主内容上下排(移动端 aside 是 fixed 不占流)
+   2. 主内容区占满剩余宽度 */
+@media (max-width: 1023px) {
+  [data-sidebar-wrapper] {
+    flex-direction: column;
+  }
+}
+
+[data-sidebar-wrapper] > .admin-main {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* 手机端主内容避开 sticky 顶栏 */
+@media (max-width: 1023px) {
+  [data-sidebar-wrapper] > .admin-main {
+    padding-top: 0;
+  }
+}
+
+/* 管理端表格:粘性表头小屏优化 */
+.ark-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ark-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--ark-muted);
+  font-weight: 500;
+  font-size: 12px;
+  border-bottom: 1px solid var(--ark-border);
+  white-space: nowrap;
+}
+.ark-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ark-border) 55%, transparent);
+  vertical-align: middle;
+}
+.ark-table tr:last-child td { border-bottom: none; }
+
 /* ===== 悬浮胶囊顶栏(QQ 弹弹) ===== */
 .ark-float-nav {
   position: sticky;
@@ -217,42 +257,84 @@ body {
 /* 长文本(订阅链接/单号)换行 */
 .break-anywhere { overflow-wrap: anywhere; }
 
-/* ===== Kumo Sidebar 布局补丁 =====
-   组件自带 flex 布局与移动端抽屉(fixed+translate),但移动端需要:
-   1. wrapper 改纵向,让顶栏 + 主内容上下排(移动端 aside 是 fixed 不占流)
-   2. 主内容区占满剩余宽度 */
-@media (max-width: 1023px) {
-  [data-sidebar-wrapper] {
-    flex-direction: column;
+/* ===== 控制台质感精修层 ===== */
+
+/* 页面顶部信号光带:品牌橙渐隐,压住页面天际线 */
+.ark-signal-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 50;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--ark-accent) 35%, transparent) 18%,
+    var(--ark-accent) 50%,
+    color-mix(in srgb, var(--ark-accent) 35%, transparent) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* 卡片:细描边 + 顶部 1px 高光 + 悬浮升起 */
+.ark-card-lift {
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 0.25s ease,
+    box-shadow 0.35s ease;
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 3%, transparent) inset;
+}
+.ark-card-lift:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--ark-accent) 32%, var(--ark-border));
+  box-shadow:
+    0 16px 40px -18px rgba(0, 0, 0, 0.5),
+    0 2px 0 color-mix(in srgb, #fff 4%, transparent) inset;
+}
+
+/* 区块标题:左侧橙色刻度线 */
+.ark-h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+.ark-h2::before {
+  content: "";
+  width: 3px;
+  height: 1em;
+  border-radius: 2px;
+  background: var(--ark-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ark-accent) 55%, transparent);
+  flex: none;
+}
+
+/* 页面内容交错入场:轻微上移淡入,子元素按索引错峰 */
+.ark-rise {
+  animation: ark-rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ark-rise-1 { animation-delay: 0.05s; }
+.ark-rise-2 { animation-delay: 0.12s; }
+.ark-rise-3 { animation-delay: 0.2s; }
+.ark-rise-4 { animation-delay: 0.28s; }
+@media (prefers-reduced-motion: reduce) {
+  .ark-rise, .ark-rise-1, .ark-rise-2, .ark-rise-3, .ark-rise-4 { animation: none; }
+}
+@keyframes ark-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-[data-sidebar-wrapper] > .admin-main {
-  flex: 1 1 0%;
-  min-width: 0;
+/* 等宽数字对齐 + 橙色关键数值 */
+.ark-num {
+  font-family: var(--font-jbmono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
-
-/* 手机端主内容避开 sticky 顶栏 */
-@media (max-width: 1023px) {
-  [data-sidebar-wrapper] > .admin-main {
-    padding-top: 0;
-  }
-}
-
-/* 管理端表格:粘性表头小屏优化 */
-.ark-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ark-table th {
-  text-align: left;
-  padding: 10px 12px;
-  color: var(--ark-muted);
-  font-weight: 500;
-  font-size: 12px;
-  border-bottom: 1px solid var(--ark-border);
-  white-space: nowrap;
-}
-.ark-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--ark-border) 55%, transparent);
-  vertical-align: middle;
-}
-.ark-table tr:last-child td { border-bottom: none; }

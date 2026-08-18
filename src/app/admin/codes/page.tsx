@@ -49,7 +49,7 @@ export default async function AdminCodesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="ark-display text-xl font-bold">注册码 / 库存</h1>
+      <h1 class="ark-h2 ark-display text-xl font-bold">注册码 / 库存</h1>
 
       <StatCards
         items={[

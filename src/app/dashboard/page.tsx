@@ -119,9 +119,9 @@ export default async function DashboardPage({
           <span>去兑换 →</span>
         </LinkButton>
       ) : (
-        <section className="mb-6 grid gap-4 md:grid-cols-2">
+        <section className="ark-rise ark-rise-2 mb-6 grid gap-4 md:grid-cols-2">
           {/* 状态卡 */}
-          <LayerCard className="p-6">
+          <LayerCard className="ark-card-lift p-6">
             <div className="ark-label">订阅状态</div>
             {canPull ? (
               <div className="flex items-center gap-2 text-lg font-bold" style={{ color: "var(--ark-green)" }}>
@@ -140,7 +140,7 @@ export default async function DashboardPage({
                     <ClockIcon size={13} className="mr-1 inline" /> 免费更新期
                   </span>
                   <span>
-                    剩 <b className="ark-mono">{freeDays}</b> 天({formatDate(user.paidUntil)})
+                    剩 <b className="ark-num">{freeDays}</b> 天({formatDate(user.paidUntil)})
                   </span>
                 </div>
               ) : null}
@@ -149,7 +149,7 @@ export default async function DashboardPage({
                   <LightningIcon size={13} className="mr-1 inline" /> 更新额度
                 </span>
                 <span>
-                  <b className="ark-mono" style={{ color: user.updateCredits > 0 ? "var(--ark-accent)" : "inherit" }}>
+                  <b className="ark-num" style={{ color: user.updateCredits > 0 ? "var(--ark-accent)" : "inherit" }}>
                     {user.updateCredits}
                   </b>{" "}
                   次
@@ -165,7 +165,7 @@ export default async function DashboardPage({
           </LayerCard>
 
           {/* 订阅链接卡 */}
-          <LayerCard className="flex flex-col p-6">
+          <LayerCard className="ark-card-lift flex flex-col p-6">
             <div className="ark-label">订阅链接(仅自己可见,勿分享)</div>
             <CopyField value={subUrl} />
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -223,7 +223,7 @@ export default async function DashboardPage({
       ) : null}
 
       <section>
-        <div className="mb-3 font-semibold">我的订单</div>
+        <h2 className="ark-h2 mb-3">我的订单</h2>
         <AdminTable
           head={["单号", "内容", "金额", "状态"]}
           rows={myOrders.map((o) => [
