@@ -13,6 +13,7 @@ import {
 import AdminTable from "@/components/admin/AdminTable";
 import CopyField from "@/components/CopyField";
 import Fingerprint from "@/components/Fingerprint";
+import BatchLockCard from "@/components/BatchLockCard";
 import RenewCard from "@/components/RenewCard";
 import ResetTokenButton from "@/components/ResetTokenButton";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -204,6 +205,12 @@ export default async function DashboardPage({
           </LayerCard>
         </section>
       )}
+
+      {user.activated ? (
+        <section className="mb-6">
+          <BatchLockCard locked={user.batchLocked} currentBatchDate={lastUpdate} />
+        </section>
+      ) : null}
 
       {user.activated ? (
         <section className="mb-6">

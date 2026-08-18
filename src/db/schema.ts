@@ -33,6 +33,8 @@ export const users = pgTable("users", {
   lastPulledBatchId: integer("last_pulled_batch_id"),
   // 最近拉取的批次日期:同日期批次(含站长当天补传)不重复扣额度
   lastPulledBatchDate: date("last_pulled_batch_date", { mode: "string" }),
+  // 锁定批次:锁定后订阅只下发已拉取的批次,站长更新不扣费;解锁后刷新即得新批次
+  batchLocked: boolean("batch_locked").notNull().default(false),
   noRefundAcceptedAt: timestamp("no_refund_accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

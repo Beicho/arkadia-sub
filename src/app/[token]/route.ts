@@ -62,21 +62,42 @@ export async function GET(
   const freeUntil =
     user.paidUntil && user.paidUntil.getTime() > Date.now() ? user.paidUntil : null;
 
-  if (!freeUntil && user.updateCredits <= 0) {
+  if (!lockedMode && !freeUntil && user.updateCredits <= 0) {
     return textResponse(
       "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
       402,
     );
   }
 
-  const [batch] = await db
+  const [activeBatch] = await db
     .select()
     .from(nodeBatches)
     .where(eq(nodeBatches.isActive, true))
     .orderBy(desc(nodeBatches.createdAt))
     .limit(1);
-  if (!batch || batch.nodes.length === 0) {
+  if (!activeBatch || activeBatch.nodes.length === 0) {
     return textResponse("今日节点尚未更新,请稍后再来", 503);
+  }
+
+  // 批次锁定:用户锁定了已付费的批次,站长更新不扣费。
+  // 下发用户已拉取的那一批,跳过额度判定与扣减;解锁后恢复正常。
+  let batch = activeBatch;
+  let lockedMode = false;
+  if (
+    user.batchLocked &&
+    user.lastPulledBatchId &&
+    activeBatch.id !== user.lastPulledBatchId
+  ) {
+    const [locked] = await db
+      .select()
+      .from(nodeBatches)
+      .where(eq(nodeBatches.id, user.lastPulledBatchId))
+      .limit(1);
+    if (locked && locked.nodes.length > 0) {
+      batch = locked;
+      lockedMode = true;
+    }
+    // 锁定批次不存在(理论上不删):回落正常逻辑
   }
 
   const nodes = batch.nodes as string[];
@@ -88,7 +109,9 @@ export async function GET(
   // 日期守卫放进原子 UPDATE 的 WHERE(OR isNull / NE),杜绝并发双拉双扣;
   // 同一 batchDate 内站长补传/福利加量(如 SOCKS5),用户刷新不重复扣。
   const dateChanged = user.lastPulledBatchDate !== batch.batchDate;
-  if (!freeUntil) {
+  if (lockedMode) {
+    // 锁定模式:批次已付费,不扣额度
+  } else if (!freeUntil) {
     if (dateChanged) {
       const consumed = await db
         .update(users)
