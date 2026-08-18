@@ -8,7 +8,7 @@ export default function AdminSocksPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 class="ark-h2 ark-display text-xl font-bold">SOCKS5 福利池</h1>
+        <h1 className="ark-h2 ark-display text-xl font-bold">SOCKS5 福利池</h1>
         <p className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
           导入第三方 SOCKS5 → 过滤(原生/家宽,风险&lt;10)→ 并发测活 → 挑最优并入今日批次。
         </p>

@@ -18,12 +18,12 @@ export default async function AdminNodesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 class="ark-h2 ark-display text-xl font-bold">节点批次</h1>
+      <h1 className="ark-h2 ark-display text-xl font-bold">节点批次</h1>
 
       <BatchForm expectedCount={s.expected_node_count} today={shanghaiToday()} />
 
       <section>
-        <h2 class="ark-h2 mb-3">
+        <h2 className="ark-h2 mb-3">
           历史批次(同时只有一个激活;激活即&quot;当前下发批次&quot;)
         </h2>
         <AdminTable

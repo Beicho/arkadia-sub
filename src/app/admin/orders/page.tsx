@@ -91,7 +91,7 @@ export default async function AdminOrdersPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 class="ark-h2 ark-display text-xl font-bold">订单</h1>
+        <h1 className="ark-h2 ark-display text-xl font-bold">订单</h1>
         <p className="mt-1 text-sm" style={{ color: "var(--ark-muted)" }}>
           待支付可对账/取消回补;已支付可退款取消(走 LDC 退款,自动回滚发货)。
         </p>
