@@ -15,9 +15,7 @@ services:
       retries: 10
 
   app:
-    build:
-      context: .
-      target: run
+    image: ghcr.io/beicho/arkadia-sub:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -34,11 +32,10 @@ services:
       DEV_FAKE_LOGIN: ${DEV_FAKE_LOGIN:-0}
     ports:
       - "127.0.0.1:3090:3000"
+    # 镜像是 CI 从 Dockerfile build 出来的,服务器不 build
 
   migrate:
-    build:
-      context: .
-      target: migrate-tools
+    image: ghcr.io/beicho/arkadia-sub:migrate
     profiles: ["tools"]
     depends_on:
       db:
