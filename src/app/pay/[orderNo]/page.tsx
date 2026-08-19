@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders } from "@/db/schema";
-import { Button, LinkButton, LayerCard } from "@/components/kumo";
+import { LinkButton } from "@/components/kumo";
+import PayClientView from "@/components/PayClientView";
 import { buildSubmitFields } from "@/lib/ldc";
 import { appUrl } from "@/lib/linuxdo";
 
@@ -36,12 +37,13 @@ export default async function PayPage({
     );
   }
 
+  const target =
+    order.orderType === "activation"
+      ? `/redeem?order=${order.outTradeNo}`
+      : `/dashboard?order=${order.outTradeNo}`;
+
   if (order.status !== "pending") {
     const refunded = order.status === "refunded";
-    const target =
-      order.orderType === "activation"
-        ? `/redeem?order=${order.outTradeNo}`
-        : `/dashboard?order=${order.outTradeNo}`;
     return (
       <main className="mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="ark-display mb-3 text-xl font-bold">
@@ -64,50 +66,18 @@ export default async function PayPage({
         : `Arkadia 更新额度 ×${order.quantity}`,
     money: Number(order.amount),
     notifyUrl: `${base}/api/payment/notify`,
-    returnUrl:
-      order.orderType === "activation"
-        ? `${base}/redeem?order=${order.outTradeNo}`
-        : `${base}/dashboard?order=${order.outTradeNo}`,
+    returnUrl: `${base}${target}`,
   });
 
   return (
     <main className="mx-auto max-w-md px-4 py-24">
-      <LayerCard className="space-y-5 p-6 text-center">
-        <h1 className="ark-display text-xl font-bold">正在前往 LDC 支付</h1>
-        <div className="ark-mono text-xs" style={{ color: "var(--ark-muted)" }}>
-          {order.outTradeNo}
-        </div>
-        <div className="text-xs" style={{ color: "var(--ark-amber)" }}>
-          请在 5 分钟内完成支付,超时订单自动关闭(库存回补,可重新下单)
-        </div>
-        <div className="ark-display text-3xl font-extrabold" style={{ color: "var(--ark-accent)" }}>
-          {Number(order.amount).toFixed(2)}
-          <span className="ml-1 text-sm font-normal" style={{ color: "var(--ark-muted)" }}>LDC</span>
-        </div>
-        <form id="payform" method="POST" action={SUBMIT_URL} className="hidden">
-          {Object.entries(fields).map(([k, v]) => (
-            <input key={k} type="hidden" name={k} value={v} />
-          ))}
-        </form>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "setTimeout(function(){document.getElementById('payform').submit()},400);",
-          }}
-        />
-        <div className="flex flex-col items-center gap-4">
-          <div
-            className="h-8 w-8 animate-spin rounded-full"
-            style={{
-              border: "2px solid var(--ark-border-strong)",
-              borderTopColor: "var(--ark-accent)",
-            }}
-          />
-          <Button type="submit" variant="secondary" size="sm">
-            若未自动跳转,点这里提交
-          </Button>
-        </div>
-      </LayerCard>
+      <PayClientView
+        orderNo={order.outTradeNo}
+        amount={Number(order.amount)}
+        submitFields={fields}
+        submitUrl={SUBMIT_URL}
+        targetUrl={target}
+      />
     </main>
   );
 }

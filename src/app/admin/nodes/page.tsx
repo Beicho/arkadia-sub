@@ -4,6 +4,7 @@ import { nodeBatches } from "@/db/schema";
 import AdminTable from "@/components/admin/AdminTable";
 import BatchActivateButton from "@/components/admin/BatchActivateButton";
 import BatchForm from "@/components/admin/BatchForm";
+import FastBatchFromSocksCard from "@/components/admin/FastBatchFromSocksCard";
 import StatusChip from "@/components/admin/StatusChip";
 import { getSettings } from "@/lib/settings";
 import { formatDate, shanghaiToday } from "@/lib/time";
@@ -19,6 +20,8 @@ export default async function AdminNodesPage() {
   return (
     <div className="space-y-6">
       <h1 className="ark-h2 ark-display text-xl font-bold">节点批次</h1>
+
+      <FastBatchFromSocksCard />
 
       <BatchForm expectedCount={s.expected_node_count} today={shanghaiToday()} />
 

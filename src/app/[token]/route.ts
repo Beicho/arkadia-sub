@@ -46,6 +46,8 @@ export async function GET(
     return textResponse("请求过于频繁,请稍后再试", 429);
   }
 
+  const url = new URL(req.url);
+
   const [user] = await db
     .select()
     .from(users)
@@ -73,11 +75,22 @@ export async function GET(
   }
 
   // 批次锁定(先于一切计费判定):用户锁定了已付费的批次,站长更新不扣费。
+  // 若配置了 batchLockedUntil,且当前时间已过该截止时间,则自动解除锁定。
+  let isLocked = user.batchLocked;
+  if (isLocked && user.batchLockedUntil && user.batchLockedUntil.getTime() <= Date.now()) {
+    isLocked = false;
+    // 异步更新数据库解除锁定状态
+    db.update(users)
+      .set({ batchLocked: false, batchLockedUntil: null })
+      .where(eq(users.id, user.id))
+      .catch(() => undefined);
+  }
+
   // 下发用户已拉取的那一批,跳过额度判定与扣减;解锁后恢复正常。
   let batch = activeBatch;
   let lockedMode = false;
   if (
-    user.batchLocked &&
+    isLocked &&
     user.lastPulledBatchId &&
     activeBatch.id !== user.lastPulledBatchId
   ) {
@@ -101,7 +114,30 @@ export async function GET(
     );
   }
 
-  const nodes = batch.nodes as string[];
+  let nodes = batch.nodes as string[];
+
+  // 节点关键字/国家正则筛选: ?filter=HK|JP 或 ?exclude=US
+  const filterQuery = url.searchParams.get("filter") || url.searchParams.get("include");
+  const excludeQuery = url.searchParams.get("exclude");
+  if (filterQuery) {
+    try {
+      const reg = new RegExp(filterQuery, "i");
+      const filtered = nodes.filter((n) => reg.test(n));
+      if (filtered.length > 0) nodes = filtered;
+    } catch {
+      // 非法正则忽略
+    }
+  }
+  if (excludeQuery) {
+    try {
+      const reg = new RegExp(excludeQuery, "i");
+      const filtered = nodes.filter((n) => !reg.test(n));
+      if (filtered.length > 0) nodes = filtered;
+    } catch {
+      // 非法正则忽略
+    }
+  }
+
   const userinfo = `upload=0; download=0; total=0; expire=${Math.floor(
     (freeUntil ?? new Date(Date.now() + 30 * 86_400_000)).getTime() / 1000,
   )}`;
@@ -173,7 +209,6 @@ export async function GET(
   }
 
   const title = profileTitle(batch.batchDate);
-  const url = new URL(req.url);
   const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
   // 格式协商:?target= 显式指定;否则按 User-Agent:Clash 系 → YAML,
   // 其余(v2rayN/v2rayNG/Shadowrocket 等)→ base64 节点列表

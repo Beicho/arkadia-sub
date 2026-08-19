@@ -11,11 +11,10 @@ import {
   DownloadSimpleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import AdminTable from "@/components/admin/AdminTable";
-import CopyField from "@/components/CopyField";
+import SubExportCard from "@/components/SubExportCard";
 import Fingerprint from "@/components/Fingerprint";
 import BatchLockCard from "@/components/BatchLockCard";
 import RenewCard from "@/components/RenewCard";
-import ResetTokenButton from "@/components/ResetTokenButton";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getCurrentUser } from "@/lib/auth";
 import { reconcileOrder } from "@/lib/reconcile";
@@ -164,51 +163,18 @@ export default async function DashboardPage({
             </div>
           </LayerCard>
 
-          {/* 订阅链接卡 */}
-          <LayerCard className="ark-card-lift flex flex-col p-6">
-            <div className="ark-label">订阅链接(仅自己可见,勿分享)</div>
-            <CopyField value={subUrl} />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <LinkButton
-                href={`/${user.subToken}?raw=1`}
-                variant="secondary"
-                size="sm"
-                external
-              >
-                <DownloadSimpleIcon size={14} />
-                下载节点文件
-              </LinkButton>
-              <ResetTokenButton />
-            </div>
-            <div
-              className="mt-4 space-y-1.5 rounded-xl p-3 text-xs leading-relaxed"
-              style={{ background: "var(--ark-surface-2)", color: "var(--ark-muted)" }}
-            >
-              <div className="font-semibold" style={{ color: "var(--ark-text)" }}>
-                怎么拿到新节点?
-              </div>
-              <div>1. 复制上面的链接,在客户端(FlClash/v2rayN 等)里添加为「订阅」</div>
-              <div>
-                2. 站长上传新批次后,在客户端里点「更新订阅」(多数客户端也会自动更新)——
-                新节点自动到手,扣 1 次更新额度
-              </div>
-              <div>3. 看上方「站长最近更新」日期,就知道现在刷会拿到几号的批次</div>
-            </div>
-            <p className="mt-auto pt-3 text-xs" style={{ color: "var(--ark-muted)" }}>
-              <LinkIcon size={12} className="mr-1 inline" />
-              泄露给他人请立即重置链接(旧链接立刻作废)。
-            </p>
-            <p className="pt-2 text-xs" style={{ color: "var(--ark-muted)" }}>
-              订阅中可能包含免费追加的 SOCKS5 福利节点(名称带 [SOCKS5·家宽] 等标记),
-              不额外收费;同一天内多次更新不重复扣额度。
-            </p>
-          </LayerCard>
+          {/* 订阅导出卡 */}
+          <SubExportCard subUrl={subUrl} subToken={user.subToken} />
         </section>
       )}
 
       {user.activated ? (
         <section className="mb-6">
-          <BatchLockCard locked={user.batchLocked} currentBatchDate={lastUpdate} />
+          <BatchLockCard
+            locked={user.batchLocked}
+            lockedUntil={user.batchLockedUntil}
+            currentBatchDate={lastUpdate}
+          />
         </section>
       ) : null}
 

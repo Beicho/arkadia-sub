@@ -35,6 +35,8 @@ export const users = pgTable("users", {
   lastPulledBatchDate: date("last_pulled_batch_date", { mode: "string" }),
   // 锁定批次:锁定后订阅只下发已拉取的批次,站长更新不扣费;解锁后刷新即得新批次
   batchLocked: boolean("batch_locked").notNull().default(false),
+  // 锁定截止时间:如果设定了截止时间,到期后自动解锁恢复拉取新批次;为 null 且 batchLocked=true 时为永久锁定
+  batchLockedUntil: timestamp("batch_locked_until", { withTimezone: true }),
   noRefundAcceptedAt: timestamp("no_refund_accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
