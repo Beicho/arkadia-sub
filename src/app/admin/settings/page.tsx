@@ -19,6 +19,7 @@ export default async function AdminSettingsPage() {
           max_credits_per_order: s.max_credits_per_order,
           admin_usernames: s.admin_usernames,
           auto_ban_fp_threshold: s.auto_ban_fp_threshold,
+          routing_mode: s.routing_mode,
         }}
       />
       <p className="text-xs text-neutral-400">

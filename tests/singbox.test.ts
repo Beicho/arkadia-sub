@@ -42,15 +42,16 @@ describe("uriToSingboxOutbound", () => {
 });
 
 describe("buildSingboxConfig", () => {
-  it("selector + outbounds + route.final,tag 用原始备注", () => {
+  it("selector + outbounds,tag 用原始备注", () => {
     const json = buildSingboxConfig([VLESS_REALITY, HY2, SOCKS])!;
     const cfg = JSON.parse(json);
     expect(cfg.outbounds[0].type).toBe("selector");
     expect(cfg.outbounds[0].tag).toBe("Arkadia");
     expect(cfg.outbounds[0].outbounds).toContain("测试");
     expect(cfg.outbounds[0].outbounds).toContain("direct");
-    expect(cfg.outbounds).toHaveLength(4); // selector + 3 节点
-    expect(cfg.route.final).toBe("Arkadia");
+    // 分流模式:7 个分组 + 3 节点 + direct
+    expect(cfg.outbounds).toHaveLength(11);
+    expect(cfg.route.final).toBe("漏网之鱼");
   });
 
   it("重名 tag 自动加序号", () => {
@@ -64,5 +65,75 @@ describe("buildSingboxConfig", () => {
 
   it("空列表返回 null", () => {
     expect(buildSingboxConfig([])).toBeNull();
+  });
+});
+
+describe("buildSingboxConfig 分流规则", () => {
+  const cfg = () => JSON.parse(buildSingboxConfig([VLESS_REALITY, HY2, SOCKS])!);
+  type Ob = { type: string; tag: string; outbounds?: string[] };
+
+  it("direct 出站必须显式存在(sing-box 没有隐式 direct)", () => {
+    const c = cfg();
+    const direct = (c.outbounds as Ob[]).find((o) => o.tag === "direct");
+    expect(direct).toBeDefined();
+    expect(direct!.type).toBe("direct");
+    // 所有被引用的 tag 都必须能在 outbounds 里找到,否则 sing-box 起不来
+    const defined = new Set((c.outbounds as Ob[]).map((o) => o.tag));
+    for (const o of c.outbounds as Ob[]) {
+      for (const ref of o.outbounds ?? []) expect(defined.has(ref)).toBe(true);
+    }
+    for (const r of c.route.rules as { outbound: string }[]) {
+      expect(defined.has(r.outbound)).toBe(true);
+    }
+    expect(defined.has(c.route.final)).toBe(true);
+  });
+
+  it("生成 urltest 自动选择组", () => {
+    const auto = (cfg().outbounds as Ob[]).find((o) => o.tag === "自动选择");
+    expect(auto?.type).toBe("urltest");
+    expect(auto?.outbounds).toEqual(["测试", "HY2", "s5"]);
+  });
+
+  it("domain_suffix 带前导点,避免 notgoogle.com 被误匹配", () => {
+    const rules = cfg().route.rules as {
+      domain?: string[];
+      domain_suffix?: string[];
+      outbound: string;
+    }[];
+    const proxyRule = rules.find((r) => r.domain?.includes("github.com"))!;
+    expect(proxyRule.domain).toContain("github.com");
+    expect(proxyRule.domain_suffix).toContain(".github.com");
+    expect(proxyRule.domain_suffix).not.toContain("github.com");
+    expect(proxyRule.outbound).toBe("Arkadia");
+  });
+
+  it("规则顺序:私有网段最先,国内域名排在国外之后", () => {
+    const rules = cfg().route.rules as Record<string, unknown>[];
+    const idx = (pred: (r: Record<string, unknown>) => boolean) =>
+      rules.findIndex(pred);
+    const priv = idx((r) => Array.isArray(r.ip_cidr) && (r.ip_cidr as string[]).includes("10.0.0.0/8"));
+    const foreign = idx((r) => Array.isArray(r.domain) && (r.domain as string[]).includes("github.com"));
+    const cn = idx((r) => Array.isArray(r.domain) && (r.domain as string[]).includes("cn"));
+    expect(priv).toBe(0);
+    expect(foreign).toBeGreaterThan(-1);
+    expect(foreign).toBeLessThan(cn);
+  });
+
+  it("不包含 block 出站或 action:reject(版本间不兼容,故不做广告拦截)", () => {
+    const json = buildSingboxConfig([VLESS_REALITY])!;
+    expect(json).not.toContain('"block"');
+    expect(json).not.toContain('"action"');
+  });
+
+  it("global 模式保持旧行为:单 selector + route.final", () => {
+    const c = JSON.parse(buildSingboxConfig([VLESS_REALITY, HY2], "Arkadia", "global")!);
+    expect(c.route.final).toBe("Arkadia");
+    expect(c.route.rules).toBeUndefined();
+    expect((c.outbounds as Ob[]).map((o) => o.tag)).toEqual([
+      "Arkadia",
+      "测试",
+      "HY2",
+      "direct",
+    ]);
   });
 });

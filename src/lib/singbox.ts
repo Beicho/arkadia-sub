@@ -5,6 +5,25 @@
  */
 
 import { readNodeName, tryDecodeBase64 } from "./nodes";
+import type { RoutingMode } from "./rules";
+import {
+  APPLE_DOMAINS,
+  CN_DOMAINS,
+  GROUP_APPLE,
+  GROUP_AUTO,
+  GROUP_FINAL,
+  GROUP_MAIN,
+  GROUP_MEDIA,
+  GROUP_MICROSOFT,
+  GROUP_TELEGRAM,
+  MEDIA_DOMAINS,
+  MICROSOFT_DOMAINS,
+  PRIVATE_CIDRS,
+  PRIVATE_DOMAINS,
+  PROXY_DOMAINS,
+  TELEGRAM_CIDRS,
+  TELEGRAM_DOMAINS,
+} from "./rules";
 
 type Outbound = Record<string, unknown>;
 
@@ -234,10 +253,46 @@ function socks5(uri: string, tag: string): Outbound | null {
   return ob;
 }
 
-/** 生成完整 sing-box JSON;无可转换节点返回 null */
+/**
+ * 域名列表 → sing-box 匹配字段。
+ *
+ * sing-box 的 `domain_suffix` 是**纯字符串后缀匹配**,不像 Clash 的
+ * DOMAIN-SUFFIX 那样按标签边界切分:直接写 `google.com` 会把
+ * `notgoogle.com` 一并匹配进去。所以拆成两组——
+ * `domain` 精确匹配裸域,`domain_suffix` 用带前导点的形式匹配子域。
+ */
+function domainMatch(suffixes: string[]): {
+  domain: string[];
+  domain_suffix: string[];
+} {
+  return {
+    domain: [...suffixes],
+    domain_suffix: suffixes.map((d) => `.${d}`),
+  };
+}
+
+/** 选择组:成员为节点 + 兜底直连 */
+function selector(tag: string, members: string[]): Outbound {
+  return { type: "selector", tag, outbounds: members };
+}
+
+/**
+ * 生成完整 sing-box JSON;无可转换节点返回 null。
+ *
+ * mode="rules"(默认)输出分流配置;mode="global" 保持旧的全量代理行为。
+ *
+ * ## 为什么这里没有广告拦截
+ *
+ * sing-box 的拦截写法在版本间是**断裂**的:`block` 出站在 1.11 弃用、
+ * 1.12 移除,取而代之的 `action: "reject"` 又不被 1.10 及更早版本识别。
+ * 任何一种写法都会在某个版本段让配置直接加载失败。
+ * 而路由用的 `outbound:` 字段全版本稳定,所以这里只做分流,
+ * 广告拦截留在 Clash 侧(REJECT 无此问题)。
+ */
 export function buildSingboxConfig(
   nodes: string[],
-  selectorTag = "Arkadia",
+  selectorTag = GROUP_MAIN,
+  mode: RoutingMode = "rules",
 ): string | null {
   const outbounds: Outbound[] = [];
   const seenTags = new Set<string>();
@@ -256,17 +311,68 @@ export function buildSingboxConfig(
   }
   if (outbounds.length === 0) return null;
 
-  const config = {
-    log: { level: "warn" },
-    outbounds: [
+  const tags = outbounds.map((o) => o.tag as string);
+  // direct 必须显式定义:sing-box 不存在隐式的 direct 出站,
+  // 只在 selector 里引用而不定义会让配置报 outbound not found。
+  const direct: Outbound = { type: "direct", tag: "direct" };
+
+  if (mode === "global") {
+    return JSON.stringify(
       {
-        type: "selector",
-        tag: selectorTag,
-        outbounds: [...outbounds.map((o) => o.tag as string), "direct"],
+        log: { level: "warn" },
+        outbounds: [
+          selector(selectorTag, [...tags, "direct"]),
+          ...outbounds,
+          direct,
+        ],
+        route: { final: selectorTag },
       },
-      ...outbounds,
-    ],
-    route: { final: selectorTag },
+      null,
+      2,
+    );
+  }
+
+  const auto: Outbound = {
+    type: "urltest",
+    tag: GROUP_AUTO,
+    outbounds: tags,
+    url: "http://www.gstatic.com/generate_204",
+    interval: "5m",
+    tolerance: 50,
   };
-  return JSON.stringify(config, null, 2);
+
+  const groups: Outbound[] = [
+    // 主组把"自动选择"排在最前:默认落到延迟最低的节点
+    selector(selectorTag, [GROUP_AUTO, ...tags, "direct"]),
+    auto,
+    selector(GROUP_MEDIA, [selectorTag, GROUP_AUTO, ...tags, "direct"]),
+    selector(GROUP_TELEGRAM, [selectorTag, GROUP_AUTO, ...tags, "direct"]),
+    // 微软/苹果默认直连:国内有 CDN/专线,走代理更慢且易触发风控
+    selector(GROUP_MICROSOFT, ["direct", selectorTag, GROUP_AUTO]),
+    selector(GROUP_APPLE, ["direct", selectorTag, GROUP_AUTO]),
+    selector(GROUP_FINAL, [selectorTag, GROUP_AUTO, "direct"]),
+  ];
+
+  // 顺序即优先级。国内域名排在国外之后:两边都命中时以国外规则为准。
+  const rules: Outbound[] = [
+    { ip_cidr: PRIVATE_CIDRS, outbound: "direct" },
+    { ...domainMatch(PRIVATE_DOMAINS), outbound: "direct" },
+    { ...domainMatch(TELEGRAM_DOMAINS), outbound: GROUP_TELEGRAM },
+    { ip_cidr: TELEGRAM_CIDRS, outbound: GROUP_TELEGRAM },
+    { ...domainMatch(MICROSOFT_DOMAINS), outbound: GROUP_MICROSOFT },
+    { ...domainMatch(APPLE_DOMAINS), outbound: GROUP_APPLE },
+    { ...domainMatch(MEDIA_DOMAINS), outbound: GROUP_MEDIA },
+    { ...domainMatch(PROXY_DOMAINS), outbound: selectorTag },
+    { ...domainMatch(CN_DOMAINS), outbound: "direct" },
+  ];
+
+  return JSON.stringify(
+    {
+      log: { level: "warn" },
+      outbounds: [...groups, ...outbounds, direct],
+      route: { rules, final: GROUP_FINAL },
+    },
+    null,
+    2,
+  );
 }

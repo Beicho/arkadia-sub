@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, LayerCard } from "@/components/kumo";
+import { Button, Input, LayerCard, Switch } from "@/components/kumo";
+import type { RoutingMode } from "@/lib/rules";
 import { apiPost } from "@/components/api";
 
 export type SettingsValues = {
@@ -14,6 +15,7 @@ export type SettingsValues = {
   max_credits_per_order: number;
   admin_usernames: string[];
   auto_ban_fp_threshold: number;
+  routing_mode: RoutingMode;
 };
 
 const NUM_FIELDS: { key: keyof SettingsValues; label: string; hint: string }[] = [
@@ -72,6 +74,22 @@ export default function SettingsForm({ initial }: { initial: SettingsValues }) {
             }
           />
         ))}
+      </div>
+      <div className="flex items-start gap-3">
+        <Switch
+          checked={values.routing_mode === "rules"}
+          onCheckedChange={(on: boolean) =>
+            setValues((v) => ({ ...v, routing_mode: on ? "rules" : "global" }))
+          }
+          variant="neutral"
+        />
+        <div className="space-y-1">
+          <div className="text-sm font-medium">订阅分流规则</div>
+          <div className="text-xs text-neutral-400">
+            开启后下发的 Clash / sing-box 配置带国内直连、广告拦截、流媒体与电报分组;
+            关闭则全量走代理(旧行为)。分流出问题时可一键回退。
+          </div>
+        </div>
       </div>
       <Input
         label="管理员 LinuxDo 用户名(逗号分隔)"

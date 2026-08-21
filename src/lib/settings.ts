@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db, type DbTx } from "@/db/client";
 import { settings } from "@/db/schema";
+import type { RoutingMode } from "./rules";
 
 export const DEFAULT_SETTINGS = {
   activation_price: 100,
@@ -12,6 +13,8 @@ export const DEFAULT_SETTINGS = {
   admin_usernames: ["devadmin"],
   auto_ban_fp_threshold: 3,
   code_stock: 100,
+  /** 订阅分流:rules = 按规则分流,global = 全量走代理(出问题时一键回退) */
+  routing_mode: "rules" as RoutingMode,
 };
 
 export type SettingsKey = keyof typeof DEFAULT_SETTINGS;

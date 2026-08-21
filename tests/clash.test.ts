@@ -119,8 +119,9 @@ describe("buildClashYaml", () => {
     expect(yaml).toContain("type: select");
     expect(yaml).toContain('- "DIRECT"');
     expect(yaml).toContain("rules:");
-    expect(yaml).toContain("  - MATCH,Arkadia");
-    expect(yaml).not.toContain('MATCH,"Arkadia"');
+    // 默认分流模式下兜底组是"漏网之鱼",不再是主组
+    expect(yaml).toContain("  - MATCH,漏网之鱼");
+    expect(yaml).not.toContain('MATCH,"漏网之鱼"');
   });
 
   it("首个节点字段使用列表缩进(- name:)", () => {
@@ -137,5 +138,84 @@ describe("buildClashYaml", () => {
     const evil = "hysteria2://pass:word@9.9.9.9:443?sni=a#x";
     const yaml = buildClashYaml([evil]);
     expect(yaml).toContain('"pass:word"');
+  });
+});
+
+describe("buildClashYaml 分流规则", () => {
+  const yaml = () => buildClashYaml([VLESS_REALITY, HY2, TROJAN])!;
+
+  it("生成全部分流分组", () => {
+    const y = yaml();
+    for (const g of [
+      "Arkadia",
+      "自动选择",
+      "国外媒体",
+      "电报消息",
+      "微软服务",
+      "苹果服务",
+      "广告拦截",
+      "漏网之鱼",
+    ]) {
+      expect(y).toContain(`- name: ${JSON.stringify(g)}`);
+    }
+    expect(y).toContain("type: url-test");
+  });
+
+  it("主组把自动选择排在最前(新用户默认落到延迟最低的节点)", () => {
+    const y = yaml();
+    const main = y.slice(y.indexOf('- name: "Arkadia"'));
+    expect(main.slice(0, 200)).toContain('- "自动选择"');
+  });
+
+  it("广告拦截组第一项是 REJECT", () => {
+    const y = yaml();
+    const g = y.slice(y.indexOf('- name: "广告拦截"'));
+    expect(g.slice(0, 160)).toContain('- "REJECT"');
+  });
+
+  it("规则顺序:局域网 → 广告 → 国外 → 国内 → GEOIP → 兜底", () => {
+    const y = yaml();
+    const at = (needle: string) => y.indexOf(needle);
+    expect(at("IP-CIDR,10.0.0.0/8,DIRECT,no-resolve")).toBeGreaterThan(-1);
+    expect(at("IP-CIDR,10.0.0.0/8,DIRECT,no-resolve")).toBeLessThan(
+      at("DOMAIN-SUFFIX,doubleclick.net,广告拦截"),
+    );
+    // 国外域名必须排在国内之前:两边都命中时以国外为准
+    expect(at("DOMAIN-SUFFIX,github.com,Arkadia")).toBeLessThan(
+      at("DOMAIN-SUFFIX,cn,DIRECT"),
+    );
+    expect(at("DOMAIN-SUFFIX,cn,DIRECT")).toBeLessThan(at("GEOIP,CN,DIRECT,no-resolve"));
+    expect(at("GEOIP,CN,DIRECT,no-resolve")).toBeLessThan(at("MATCH,漏网之鱼"));
+  });
+
+  it("MATCH 是最后一条规则", () => {
+    const y = yaml().trimEnd();
+    expect(y.slice(y.lastIndexOf("\n") + 1)).toBe("  - MATCH,漏网之鱼");
+  });
+
+  it("fake-ip 段不能被判直连(否则 fake-ip 连接绕过代理)", () => {
+    const y = yaml();
+    expect(y).toContain("fake-ip-range: 198.18.0.1/16");
+    expect(y).not.toContain("IP-CIDR,198.18.0.0/15");
+    expect(y).not.toContain("IP-CIDR,198.18.0.0/16");
+  });
+
+  it("IP 规则一律带 no-resolve,域名规则一律不带", () => {
+    for (const line of yaml().split("\n")) {
+      if (line.includes("IP-CIDR,") || line.startsWith("  - GEOIP,")) {
+        expect(line.endsWith(",no-resolve")).toBe(true);
+      }
+      if (line.startsWith("  - DOMAIN-SUFFIX,")) {
+        expect(line).not.toContain("no-resolve");
+      }
+    }
+  });
+
+  it("global 模式保持旧行为:单组 + MATCH 主组", () => {
+    const y = buildClashYaml([VLESS_REALITY, HY2], "Arkadia", "global")!;
+    expect(y).toContain("  - MATCH,Arkadia");
+    expect(y).not.toContain("漏网之鱼");
+    expect(y).not.toContain("DOMAIN-SUFFIX");
+    expect(y).not.toContain("type: url-test");
   });
 });

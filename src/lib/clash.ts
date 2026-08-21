@@ -7,6 +7,28 @@
  */
 
 import { readNodeName, tryDecodeBase64 } from "./nodes";
+import {
+  AD_DOMAINS,
+  APPLE_DOMAINS,
+  CN_DOMAINS,
+  GROUP_ADS,
+  GROUP_APPLE,
+  GROUP_AUTO,
+  GROUP_FINAL,
+  GROUP_MAIN,
+  GROUP_MEDIA,
+  GROUP_MICROSOFT,
+  GROUP_TELEGRAM,
+  MEDIA_DOMAINS,
+  MICROSOFT_DOMAINS,
+  PRIVATE_CIDRS,
+  PRIVATE_DOMAINS,
+  PROXY_DOMAINS,
+  TELEGRAM_CIDRS,
+  TELEGRAM_DOMAINS,
+} from "./rules";
+import type { RoutingMode } from "./rules";
+export type { RoutingMode };
 
 type YamlValue = string | number | boolean | YamlPairs;
 type YamlPairs = Array<[string, YamlValue]>;
@@ -322,10 +344,68 @@ function trojanToClash(uri: string, name: string): YamlPairs | null {
   return proxy;
 }
 
-/** 生成完整 Clash YAML 配置;节点名保留站长配置的原始备注;无可转换节点时返回 null */
+/** 一条 Clash 规则行 */
+function rule(...parts: string[]): string {
+  return `  - ${parts.join(",")}`;
+}
+
+/**
+ * 分流规则段。顺序即优先级,自上而下第一条命中即生效:
+ *   局域网 → 广告 → 电报 → 微软/苹果 → 流媒体 → 国外站点 → 国内域名 → 国内 IP → 兜底
+ *
+ * 国内 IP 用 `GEOIP,CN`:Clash 内核自带 mmdb,不需要额外下载,
+ * 这是内联方案里唯一"免费"拿到的 IP 级判断,能兜住没进域名表的长尾。
+ * `no-resolve` 只加在 IP 规则上,避免为了判断而强制 DNS 解析(fake-ip 下会误判)。
+ */
+function buildRules(): string[] {
+  const lines: string[] = [];
+
+  // 局域网/本机:最优先,否则内网服务会被卷进代理
+  for (const d of PRIVATE_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, "DIRECT"));
+  for (const c of PRIVATE_CIDRS) lines.push(rule("IP-CIDR", c, "DIRECT", "no-resolve"));
+
+  for (const d of AD_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_ADS));
+
+  for (const d of TELEGRAM_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_TELEGRAM));
+  for (const c of TELEGRAM_CIDRS) lines.push(rule("IP-CIDR", c, GROUP_TELEGRAM, "no-resolve"));
+
+  for (const d of MICROSOFT_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_MICROSOFT));
+  for (const d of APPLE_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_APPLE));
+  for (const d of MEDIA_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_MEDIA));
+  for (const d of PROXY_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, GROUP_MAIN));
+
+  // 国内域名要排在国外之后:两边都命中时(如 .cn 下的外企站点)以国外规则为准
+  for (const d of CN_DOMAINS) lines.push(rule("DOMAIN-SUFFIX", d, "DIRECT"));
+
+  lines.push(rule("GEOIP", "CN", "DIRECT", "no-resolve"));
+  lines.push(rule("MATCH", GROUP_FINAL));
+  return lines;
+}
+
+/** 一个 proxy-group 的 YAML 片段 */
+function emitGroup(
+  name: string,
+  type: string,
+  members: string[],
+  extra: string[] = [],
+): string[] {
+  const lines = [`  - name: ${JSON.stringify(name)}`, `    type: ${type}`];
+  lines.push(...extra.map((e) => `    ${e}`));
+  lines.push("    proxies:");
+  for (const m of members) lines.push(`      - ${JSON.stringify(m)}`);
+  return lines;
+}
+
+/**
+ * 生成完整 Clash YAML 配置;节点名保留站长配置的原始备注;无可转换节点时返回 null。
+ *
+ * mode="rules"(默认)输出分流配置;mode="global" 保持旧的全量代理行为,
+ * 供站长在分流出问题时一键回退。
+ */
 export function buildClashYaml(
   nodes: string[],
-  groupName = "Arkadia",
+  groupName = GROUP_MAIN,
+  mode: RoutingMode = "rules",
 ): string | null {
   const proxies: YamlPairs[] = [];
   const usedNames = new Set<string>();
@@ -377,15 +457,35 @@ export function buildClashYaml(
   for (const p of proxies) lines.push(emitProxy(p));
 
   lines.push("proxy-groups:");
-  lines.push(`  - name: ${JSON.stringify(groupName)}`);
-  lines.push("    type: select");
-  lines.push("    proxies:");
-  for (const n of names) lines.push(`      - ${JSON.stringify(n)}`);
-  lines.push(`      - "DIRECT"`);
+
+  if (mode === "global") {
+    lines.push(...emitGroup(groupName, "select", [...names, "DIRECT"]));
+    lines.push("rules:");
+    // Clash 规则语法:MATCH,<组名>,组名不加引号
+    lines.push(`  - MATCH,${groupName}`);
+    return lines.join("\n") + "\n";
+  }
+
+  // 主组把"自动选择"排在最前:新用户默认落到延迟最低的节点,而不是列表第一个
+  lines.push(...emitGroup(groupName, "select", [GROUP_AUTO, ...names, "DIRECT"]));
+  lines.push(
+    ...emitGroup(GROUP_AUTO, "url-test", names, [
+      "url: http://www.gstatic.com/generate_204",
+      "interval: 300",
+      "tolerance: 50",
+    ]),
+  );
+  // 媒体/电报单独成组:这两类最常需要单独指定落地
+  lines.push(...emitGroup(GROUP_MEDIA, "select", [groupName, GROUP_AUTO, ...names, "DIRECT"]));
+  lines.push(...emitGroup(GROUP_TELEGRAM, "select", [groupName, GROUP_AUTO, ...names, "DIRECT"]));
+  // 微软/苹果默认直连:国内有 CDN/专线,走代理更慢且容易触发风控
+  lines.push(...emitGroup(GROUP_MICROSOFT, "select", ["DIRECT", groupName, GROUP_AUTO]));
+  lines.push(...emitGroup(GROUP_APPLE, "select", ["DIRECT", groupName, GROUP_AUTO]));
+  lines.push(...emitGroup(GROUP_ADS, "select", ["REJECT", "DIRECT"]));
+  lines.push(...emitGroup(GROUP_FINAL, "select", [groupName, GROUP_AUTO, "DIRECT"]));
 
   lines.push("rules:");
-  // Clash 规则语法:MATCH,<组名>,组名不加引号
-  lines.push(`  - MATCH,${groupName}`);
+  lines.push(...buildRules());
 
   return lines.join("\n") + "\n";
 }

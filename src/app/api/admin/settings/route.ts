@@ -19,6 +19,7 @@ const bodySchema = z.object({
     .optional(),
   auto_ban_fp_threshold: z.number().int().min(2).max(50).optional(),
   code_stock: z.number().int().min(0).max(100_000).optional(),
+  routing_mode: z.enum(["rules", "global"]).optional(),
 });
 
 export async function PUT(req: Request) {

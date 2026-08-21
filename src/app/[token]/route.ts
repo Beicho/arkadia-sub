@@ -4,6 +4,7 @@ import { nodeBatches, subPulls, users } from "@/db/schema";
 import { buildClashYaml } from "@/lib/clash";
 import { buildSingboxConfig } from "@/lib/singbox";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
+import { getSettings } from "@/lib/settings";
 import {
   buildRawContent,
   buildSubscriptionPayload,
@@ -210,6 +211,9 @@ export async function GET(
 
   const title = profileTitle(batch.batchDate);
   const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
+  // 分流模式:站长可在后台一键切回全量代理
+  const { routing_mode: routingMode } = await getSettings();
+
   // 格式协商:?target= 显式指定;否则按 User-Agent:Clash 系 → YAML,
   // 其余(v2rayN/v2rayNG/Shadowrocket 等)→ base64 节点列表
   const target = url.searchParams.get("target");
@@ -225,7 +229,7 @@ export async function GET(
       /sing-box|singbox|sfi|sfa|sfm|hiddify/.test(ua));
 
   if (wantsSingbox) {
-    const json = buildSingboxConfig(nodes);
+    const json = buildSingboxConfig(nodes, undefined, routingMode);
     if (json) {
       return new Response(json, {
         headers: {
@@ -242,7 +246,7 @@ export async function GET(
   }
 
   if (wantsClash) {
-    const yaml = buildClashYaml(nodes);
+    const yaml = buildClashYaml(nodes, undefined, routingMode);
     if (yaml) {
       return new Response(yaml, {
         headers: {
