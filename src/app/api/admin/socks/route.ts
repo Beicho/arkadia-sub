@@ -12,6 +12,7 @@ import {
   proxyUri,
   redactProxyCredentials,
   socksNodeName,
+  type SocksEntry,
 } from "@/lib/socks-parse";
 import {
   getSocksRunState,
@@ -115,14 +116,17 @@ export async function GET() {
 }
 
 type SocksRow = typeof socksPool.$inferSelect;
-function rowToEntry(r: SocksRow) {
+function rowToEntry(r: SocksRow): SocksEntry {
+  const protocol =
+    r.protocol === "https"
+      ? "https"
+      : r.protocol === "http"
+        ? "http"
+        : "socks5";
   return {
     host: r.host,
     port: r.port,
-    protocol:
-      r.protocol === "http" || r.protocol === "https"
-        ? r.protocol
-        : ("socks5" as const),
+    protocol,
     username: r.username || null,
     password: r.password || null,
     line: r.line,
