@@ -67,7 +67,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           # run 阶段 = 生产镜像;migrate-tools 阶段含 node_modules,专门跑 drizzle-kit push
@@ -80,7 +80,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build migrate image (local export)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: migrate-tools
