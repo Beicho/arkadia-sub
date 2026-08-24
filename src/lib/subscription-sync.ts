@@ -386,6 +386,17 @@ function isProxyUri(value: string): boolean {
 
 /** 解析 raw URI、整段 base64，或完整 Clash YAML 顶层 proxies。 */
 export function parseSubscriptionNodes(raw: string): string[] {
+  // 必须先识别整段 Base64：normalizeNodeInput 的协议白名单不含 HTTP/SOCKS5，
+  // 若先调用它，会在混合订阅里拿到部分节点后提前返回，静默漏掉其余协议。
+  const compact = raw.replace(/\s+/g, "");
+  if (!raw.includes("://")) {
+    const decoded = tryDecodeBase64(compact);
+    if (decoded && decoded !== raw) {
+      const decodedNodes = parseSubscriptionNodes(decoded);
+      if (decodedNodes.length > 0) return decodedNodes;
+    }
+  }
+
   const direct = dedupeNodes(normalizeNodeInput(raw));
   const lineCandidates = dedupeNodes(
     raw
@@ -395,15 +406,6 @@ export function parseSubscriptionNodes(raw: string): string[] {
   );
   const rawNodes = dedupeNodes([...direct, ...lineCandidates]);
   if (rawNodes.length > 0) return rawNodes;
-
-  const compact = raw.replace(/\s+/g, "");
-  if (!raw.includes("://")) {
-    const decoded = tryDecodeBase64(compact);
-    if (decoded && decoded !== raw) {
-      const decodedNodes = parseSubscriptionNodes(decoded);
-      if (decodedNodes.length > 0) return decodedNodes;
-    }
-  }
 
   let document: unknown;
   try {
