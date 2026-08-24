@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRawContent,
   buildSubscriptionPayload,
+  filterNodesByKeywords,
   normalizeNodeInput,
   readNodeName,
 } from "@/lib/nodes";
@@ -25,6 +26,21 @@ describe("normalizeNodeInput", () => {
 
   it("忽略非节点行(https/普通文本)", () => {
     expect(normalizeNodeInput("hello\nhttps://example.com\n")).toEqual([]);
+  });
+});
+
+describe("filterNodesByKeywords", () => {
+  const nodes = [VLESS, HY2, TROJAN];
+
+  it("按 | 分隔关键词且大小写不敏感", () => {
+    expect(filterNodesByKeywords(nodes, "97.64|HY2")).toEqual([VLESS, HY2]);
+    expect(filterNodesByKeywords(nodes, "trojan")).toEqual([TROJAN]);
+  });
+
+  it("支持排除并在结果为空时回退原列表", () => {
+    expect(filterNodesByKeywords(nodes, "HY2", true)).toEqual([VLESS, TROJAN]);
+    expect(filterNodesByKeywords(nodes, "不存在")).toEqual(nodes);
+    expect(filterNodesByKeywords(nodes, "vless|hysteria2|trojan", true)).toEqual(nodes);
   });
 });
 

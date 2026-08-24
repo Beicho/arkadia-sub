@@ -100,7 +100,9 @@ describe("buildSingboxConfig 分流规则", () => {
       domain_suffix?: string[];
       outbound: string;
     }[];
-    const proxyRule = rules.find((r) => r.domain?.includes("github.com"))!;
+    const proxyRule = rules.find((r) =>
+      r.domain?.some((domain) => domain === "github.com"),
+    )!;
     expect(proxyRule.domain).toContain("github.com");
     expect(proxyRule.domain_suffix).toContain(".github.com");
     expect(proxyRule.domain_suffix).not.toContain("github.com");
@@ -112,7 +114,11 @@ describe("buildSingboxConfig 分流规则", () => {
     const idx = (pred: (r: Record<string, unknown>) => boolean) =>
       rules.findIndex(pred);
     const priv = idx((r) => Array.isArray(r.ip_cidr) && (r.ip_cidr as string[]).includes("10.0.0.0/8"));
-    const foreign = idx((r) => Array.isArray(r.domain) && (r.domain as string[]).includes("github.com"));
+    const foreign = idx(
+      (r) =>
+        Array.isArray(r.domain) &&
+        (r.domain as string[]).some((domain) => domain === "github.com"),
+    );
     const cn = idx((r) => Array.isArray(r.domain) && (r.domain as string[]).includes("cn"));
     expect(priv).toBe(0);
     expect(foreign).toBeGreaterThan(-1);

@@ -75,6 +75,26 @@ export function buildRawContent(nodes: string[]): string {
   return nodes.join("\n");
 }
 
+/** 按 | 分隔的普通关键词筛选节点，避免把用户输入解释为正则表达式。 */
+export function filterNodesByKeywords(
+  nodes: string[],
+  query: string | null,
+  exclude = false,
+): string[] {
+  const keywords = (query ?? "")
+    .split("|")
+    .map((keyword) => keyword.trim().toLowerCase().slice(0, 64))
+    .filter(Boolean)
+    .slice(0, 20);
+  if (keywords.length === 0) return nodes;
+
+  const filtered = nodes.filter((node) => {
+    const matches = keywords.some((keyword) => node.toLowerCase().includes(keyword));
+    return exclude ? !matches : matches;
+  });
+  return filtered.length > 0 ? filtered : nodes;
+}
+
 /** 解析节点备注(下发/转换时保留的节点名) */
 export function readNodeName(uri: string): string {
   const lower = uri.toLowerCase();

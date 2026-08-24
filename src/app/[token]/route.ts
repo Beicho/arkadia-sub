@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import {
   buildRawContent,
   buildSubscriptionPayload,
+  filterNodesByKeywords,
 } from "@/lib/nodes";
 
 /** 订阅标题:客户端列表里显示"这是几号的节点"(profile-title: base64: 协议) */
@@ -117,27 +118,11 @@ export async function GET(
 
   let nodes = batch.nodes as string[];
 
-  // 节点关键字/国家正则筛选: ?filter=HK|JP 或 ?exclude=US
+  // 节点关键字筛选: ?filter=HK|JP 或 ?exclude=US
   const filterQuery = url.searchParams.get("filter") || url.searchParams.get("include");
   const excludeQuery = url.searchParams.get("exclude");
-  if (filterQuery) {
-    try {
-      const reg = new RegExp(filterQuery, "i");
-      const filtered = nodes.filter((n) => reg.test(n));
-      if (filtered.length > 0) nodes = filtered;
-    } catch {
-      // 非法正则忽略
-    }
-  }
-  if (excludeQuery) {
-    try {
-      const reg = new RegExp(excludeQuery, "i");
-      const filtered = nodes.filter((n) => !reg.test(n));
-      if (filtered.length > 0) nodes = filtered;
-    } catch {
-      // 非法正则忽略
-    }
-  }
+  nodes = filterNodesByKeywords(nodes, filterQuery);
+  nodes = filterNodesByKeywords(nodes, excludeQuery, true);
 
   const userinfo = `upload=0; download=0; total=0; expire=${Math.floor(
     (freeUntil ?? new Date(Date.now() + 30 * 86_400_000)).getTime() / 1000,

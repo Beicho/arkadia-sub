@@ -25,8 +25,8 @@ export type SocksEntry = {
  * 支持 SOCKS5 与 HTTP(S) 代理;其他 scheme 明确不认。
  */
 // host:port + 可选元数据(空白/|/,分隔);userinfo 单独用 rfind('@') 剥离(密码可含 @)
-const AUTH_RE =
-  /^([a-zA-Z0-9.\-]+):(\d{1,5})(?:[\s|,]+(.*))?$/;
+const HOST_RE = /^[a-zA-Z0-9.-]+$/;
+const PORT_RE = /^\d{1,5}$/;
 // 接受的协议前缀:socks5(含 socks5h)/ http / https —— 池里 HTTP 代理占大头
 const SCHEME_RE = /^(socks5h?|https?):\/\//i;
 const OTHER_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
@@ -76,12 +76,30 @@ export function parseSocksLine(raw: string): SocksEntry | null {
     body = body.slice(at + 1);
   }
 
-  const m = AUTH_RE.exec(body);
-  if (!m) return null;
-  const [, host, portStr, rest] = m;
+  let metaStart = -1;
+  for (let i = 0; i < body.length; i++) {
+    const char = body[i];
+    if (/\s/.test(char) || char === "|" || char === ",") {
+      metaStart = i;
+      break;
+    }
+  }
+  const authority = metaStart >= 0 ? body.slice(0, metaStart) : body;
+  while (
+    metaStart >= 0 &&
+    metaStart < body.length &&
+    (/\s/.test(body[metaStart]) || body[metaStart] === "|" || body[metaStart] === ",")
+  ) {
+    metaStart++;
+  }
+  const meta = metaStart >= 0 ? body.slice(metaStart) : "";
+  const colon = authority.lastIndexOf(":");
+  if (colon <= 0) return null;
+  const host = authority.slice(0, colon);
+  const portStr = authority.slice(colon + 1);
+  if (!HOST_RE.test(host) || !PORT_RE.test(portStr)) return null;
   const port = Number(portStr);
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
-  const meta = rest ?? "";
 
   // 括号组分类:含空格 → 地区(取最后一个);无空格 → 标签
   const tags: string[] = [];
