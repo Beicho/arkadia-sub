@@ -16,7 +16,7 @@ Arkadia 是一个自托管的节点订阅与付费更新系统，使用 LinuxDo 
 
 ## 技术栈
 
-- Next.js 15、React 19、TypeScript
+- Next.js 16、React 19、TypeScript
 - Drizzle ORM、PostgreSQL 16
 - Vitest
 - Docker、GitHub Actions、GHCR
