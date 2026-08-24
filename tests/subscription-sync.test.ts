@@ -90,4 +90,17 @@ proxy-groups:
       "socks5://127.0.0.1:1080#local",
     ]);
   });
+
+  it("保留显式默认端口的 HTTP 代理且拒绝普通网页地址", () => {
+    const raw = [
+      "http://proxy.example.com:80#http-default",
+      "https://proxy.example.com:443#https-default",
+      "https://www.example.com/path",
+    ].join("\n");
+
+    expect(parseSubscriptionNodes(raw)).toEqual([
+      "http://proxy.example.com:80#http-default",
+      "https://proxy.example.com:443#https-default",
+    ]);
+  });
 });

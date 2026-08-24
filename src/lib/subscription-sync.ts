@@ -378,7 +378,13 @@ function isProxyUri(value: string): boolean {
   try {
     const url = new URL(value);
     // 普通网页地址不是代理节点；HTTP 代理至少应有显式端口或认证信息。
-    return Boolean(url.port || url.username || url.password);
+    // URL 会把 :80/:443 这类默认端口标准化为空，必须从原始 authority 判断。
+    const authority = value
+      .slice(value.indexOf("://") + 3)
+      .split(/[/?#]/, 1)[0];
+    const hostPort = authority.slice(authority.lastIndexOf("@") + 1);
+    const hasExplicitPort = /^\[[^\]]+\]:\d+$/.test(hostPort) || /:\d+$/.test(hostPort);
+    return Boolean(hasExplicitPort || url.username || url.password);
   } catch {
     return false;
   }
