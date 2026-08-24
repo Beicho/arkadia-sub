@@ -1,0 +1,19 @@
+name: Purge legacy package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete legacy GHCR package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh api --method DELETE
+          "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/arkadia-sub"
