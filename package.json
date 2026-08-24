@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@cloudflare/kumo": "^2.10.0",
+    "@cloudflare/kumo": "^2.12.0",
     "@phosphor-icons/react": "^2.1.7",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.0.11",
