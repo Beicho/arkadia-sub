@@ -16,6 +16,9 @@ services:
 
   app:
     image: ghcr.io/beicho/arkadia-sub:latest
+    build:
+      context: .
+      target: run
     restart: unless-stopped
     depends_on:
       db:
@@ -35,10 +38,13 @@ services:
       DEV_FAKE_LOGIN: ${DEV_FAKE_LOGIN:-0}
     ports:
       - "127.0.0.1:3090:3000"
-    # 镜像是 CI 从 Dockerfile build 出来的,服务器不 build
+    # 生产服务器使用 CI 镜像；源码部署可先运行 docker compose build app migrate
 
   migrate:
     image: ghcr.io/beicho/arkadia-sub:migrate
+    build:
+      context: .
+      target: migrate-tools
     profiles: ["tools"]
     depends_on:
       db:

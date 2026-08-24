@@ -41,6 +41,7 @@ ADMIN_USERNAMES=your-linuxdo-username
 启动数据库、执行迁移并启动应用：
 
 ```bash
+docker compose build app migrate
 docker compose up -d db
 docker compose --profile tools run --rm migrate
 docker compose up -d app
