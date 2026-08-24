@@ -1,67 +1,113 @@
-# Arkadia 订阅系统
+# Arkadia
 
-LinuxDo OAuth 登录 + LDC 支付的每日节点订阅站。
+Arkadia 是一个自托管的节点订阅与付费更新系统，使用 LinuxDo OAuth 登录、LDC 支付、PostgreSQL 和 Docker Compose。管理员可以维护节点批次、代理池、用户、订单和兑换码；用户通过独立订阅链接获取 Clash、sing-box 或 Base64 格式配置。
 
-- **注册码 100 LDC**(库存制,游客可买,付款自动发码,首期开放 100 名额),兑换送 5 天免费更新
-- 免费期后 **3 LDC/次更新额度**:拉新批次扣 1 额度,重复拉同一批不扣,额度不随时间过期(站长没更新就不用买)
-- 专属订阅链接 `https://arkadia.work/<uuid>`,节点命名 `Arkadia-日期-序号`
-- 订阅按 UA 分发 Clash / sing-box / base64 三种格式,**默认带分流规则**:
-  国内直连、局域网直连、广告拦截(Clash)、微软/苹果直连、流媒体与电报独立分组、
-  自动选择(url-test)兜底。规则全部内联在 `src/lib/rules.ts`,不依赖远程规则集,
-  拉不到规则库导致配置加载失败的风险为零。后台"设置"页可一键切回全量代理
-- 站长后台:批次上传、每 4 小时上游订阅全量同步、用户分页检索、库存/订单/风控与参数设置
-- 福利代理池:SOCKS5/HTTP 可重复测速;每批最多加入 60 个(30 个原生/家宽优先 + 30 个实测高速)
-- 一人多号识别:设备指纹同簇 ≥ 阈值自动封禁
-- 不退款条款:购买前强制勾选 + ToS 明示
+## 功能
+
+- LinuxDo OAuth 登录与最低信任等级限制
+- 注册码库存、LDC 支付和更新额度
+- 按日期计费：同一天切换多个批次只消耗一次更新额度
+- Clash、sing-box、Base64 订阅格式与内置分流规则
+- 每 4 小时拉取上游订阅、创建新批次并原子切换
+- SOCKS5/HTTP 代理导入、复测与延迟排序
+- 每批最多加入 60 个福利代理：30 个原生/家宽优先，30 个实测高速优先
+- 用户分页检索、订单对账、公告、风控与审计日志
+- Docker Compose 部署与 GitHub Actions 构建镜像
 
 ## 技术栈
 
-Next.js 15(App Router)+ @cloudflare/kumo UI + Tailwind v4 + Drizzle ORM + PostgreSQL。
-部署:Docker Compose(app + db)，GitHub Actions 测试并构建 GHCR 镜像，服务器只拉取镜像。
+- Next.js 15、React 19、TypeScript
+- Drizzle ORM、PostgreSQL 16
+- Vitest
+- Docker、GitHub Actions、GHCR
 
-## 开发
+## 快速开始
 
 ```bash
-cp .env.example .env        # 填 SESSION_SECRET / POSTGRES_PASSWORD
+git clone https://github.com/Beicho/arkadia-sub.git
+cd arkadia-sub
+cp .env.example .env
+```
+
+编辑 `.env`，至少设置数据库密码、会话密钥、站点地址和管理员用户名：
+
+```dotenv
+POSTGRES_PASSWORD=replace-with-a-strong-password
+SESSION_SECRET=replace-with-output-of-openssl-rand-hex-32
+APP_URL=https://subscription.example.com
+ADMIN_USERNAMES=your-linuxdo-username
+```
+
+启动数据库、执行迁移并启动应用：
+
+```bash
+docker compose up -d db
+docker compose --profile tools run --rm migrate
+docker compose up -d app
+```
+
+应用默认监听 `127.0.0.1:3090`。生产环境应由 Caddy、Nginx 或其他反向代理终止 TLS，再转发到该端口。
+
+## 环境变量
+
+| 变量 | 必需 | 用途 |
+|---|---|---|
+| `POSTGRES_PASSWORD` | 是 | PostgreSQL 容器密码 |
+| `SESSION_SECRET` | 是 | 会话签名密钥，建议使用 `openssl rand -hex 32` 生成 |
+| `APP_URL` | 是 | 站点公开地址，用于 OAuth、支付回调和订阅链接 |
+| `ADMIN_USERNAMES` | 是 | LinuxDo 管理员用户名，多个值用逗号分隔 |
+| `LINUXDO_CLIENT_ID` | 生产必需 | LinuxDo Connect OAuth Client ID |
+| `LINUXDO_CLIENT_SECRET` | 生产必需 | LinuxDo Connect OAuth Client Secret |
+| `LDC_PID` | 启用支付时必需 | LDC 商户 PID |
+| `LDC_KEY` | 启用支付时必需 | LDC API Key |
+| `LDC_EPAY_BASE` | 否 | LDC 支付接口地址 |
+| `UPSTREAM_SUBSCRIPTION_URL` | 启用自动同步时必需 | 上游订阅地址，可能包含访问令牌 |
+| `LDC_ORDER_EXPIRE_MINUTES` | 否 | 待支付订单过期时间，默认 5 分钟 |
+| `DEV_FAKE_LOGIN` | 否 | 非生产环境的模拟登录开关 |
+
+`ADMIN_USERNAMES` 是全新数据库的初始管理员名单。系统初始化后仍可在后台设置页维护管理员。
+
+`UPSTREAM_SUBSCRIPTION_URL` 不会显示在管理员页面中。后台填写自定义地址时，该值保存在数据库并优先于环境变量；把输入框留空会恢复使用环境变量。
+
+## 自动同步
+
+后台进程每分钟检查一次同步状态，到达 4 小时间隔后才会真正拉取。一次同步会：
+
+1. 获取并解析 Raw URI、Base64 或 Clash YAML 上游订阅。
+2. 保留上游中的全部有效节点。
+3. 从已测可用代理池选取最多 60 个福利代理。
+4. 去重后创建一个新批次，并在数据库事务中切换激活状态。
+
+自动同步失败不会停用当前批次。同一上海日期内创建多个批次，用户仍只消耗一次更新额度。
+
+## 本地开发
+
+```bash
 npm install
-npm run db:push             # 建表
-DEV_FAKE_LOGIN=1 npm run dev  # 无需真实 OAuth 即可登录调试
+cp .env.example .env
+npm run db:push
+DEV_FAKE_LOGIN=1 npm run dev
 ```
 
-`DEV_FAKE_LOGIN=1` 时首页出现"DEV 登录"面板,可模拟任意用户名/信任级登录(仅非 production)。
-
-## 测试 / CI
-
-GitHub Actions(`.github/workflows/ci.yml`):npm ci → drizzle-kit push(postgres service)→ vitest → next build。
+测试与构建：
 
 ```bash
-npm test        # vitest 单测(签名/金额/节点命名/兑换码)
+npm test
+npm run build
 ```
 
-## 部署(GitHub Actions 构建镜像)
+## 安全
 
-```bash
-# 服务器上只准备配置并拉取 CI 产物:
-git clone https://github.com/Beicho/arkadia-sub.git && cd arkadia-sub
-cp .env.example .env && vim .env
-docker compose pull
-docker compose --profile tools run --rm migrate   # 建表/迁移
-docker compose up -d app db
-```
+- 不要把真实 `.env`、订阅地址、OAuth Secret、支付密钥或数据库备份提交到仓库。
+- 上游订阅地址通常等同于访问凭据，泄露后应立即在供应商处轮换。
+- 生产环境必须保持 `DEV_FAKE_LOGIN=0`，并使用 HTTPS。
+- GHCR 镜像公开时，其中的服务端代码也可以被提取；秘密只能在运行时通过环境变量或 Secret 注入。
+- 安全问题请按照 [SECURITY.md](SECURITY.md) 私下报告，不要在公开 Issue 中提交凭据或用户数据。
 
-反代把 `arkadia.work` → `127.0.0.1:3090`,TLS 在反代层终止。
+## 参与贡献
 
-## 上线前需要准备
+提交改动前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。CI 会检查数据库结构、运行 Vitest、构建 Next.js，并为 `main` 分支发布容器镜像。
 
-1. [connect.linux.do](https://connect.linux.do) 创建 OAuth 应用,回调 `{APP_URL}/api/auth/callback`
-2. [credit.linux.do](https://credit.linux.do) 控制台创建 API Key(pid/key)
-3. DNS:`arkadia.work` A 记录指向服务器
+## 许可证
 
-## 安全要点
-
-- 支付回调验签(MD5)+ 金额严格比对 + 行锁幂等
-- 服务端定价,不信任任何前端金额
-- 注册码库存原子扣减,超时未付自动回补
-- OAuth state 防 CSRF;会话 JWT httpOnly cookie
-- 管理后台二次鉴权(handler 层),操作全量审计
-- 全局限流:登录/下单/订阅端点
+Arkadia 使用 [GNU Affero General Public License v3.0](LICENSE)。修改后通过网络向用户提供服务时，需要向这些用户提供对应版本的源代码。

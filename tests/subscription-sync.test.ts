@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { parseSubscriptionNodes } from "@/lib/subscription-sync";
+import {
+  parseSubscriptionNodes,
+  resolveSubscriptionSourceUrl,
+} from "@/lib/subscription-sync";
+
+describe("resolveSubscriptionSourceUrl", () => {
+  it("数据库配置优先于环境变量", () => {
+    expect(
+      resolveSubscriptionSourceUrl(
+        "https://database.example/sub",
+        "https://environment.example/sub",
+      ),
+    ).toBe("https://database.example/sub");
+  });
+
+  it("数据库配置留空时使用环境变量", () => {
+    expect(
+      resolveSubscriptionSourceUrl("", " https://environment.example/sub "),
+    ).toBe("https://environment.example/sub");
+  });
+
+  it("没有任何订阅来源时拒绝运行", () => {
+    expect(() => resolveSubscriptionSourceUrl("", "")).toThrow(
+      "未配置上游订阅地址",
+    );
+  });
+});
 
 describe("parseSubscriptionNodes", () => {
   it("解析 Clash YAML 顶层 proxies 并保留关键连接参数", () => {

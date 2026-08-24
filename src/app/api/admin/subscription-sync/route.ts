@@ -37,10 +37,10 @@ export async function PUT(req: Request) {
 
   try {
     const config = await saveSubscriptionSyncConfig(parsed.data);
-    // 订阅 URL 可能包含访问令牌，审计中只记录开关和是否使用默认值。
+    // 订阅 URL 可能包含访问令牌，审计中只记录开关和配置来源。
     await audit(admin.id, "subscription_sync_config", undefined, {
       enabled: config.enabled,
-      source: parsed.data.sourceUrl?.trim() ? "custom" : "default",
+      source: parsed.data.sourceUrl?.trim() ? "database" : "environment",
     });
     return Response.json({ ok: true, config });
   } catch (error) {

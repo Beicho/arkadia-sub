@@ -3,6 +3,17 @@ import { db, type DbTx } from "@/db/client";
 import { settings } from "@/db/schema";
 import type { RoutingMode } from "./rules";
 
+export function parseAdminUsernames(value: string | undefined): string[] {
+  return [
+    ...new Set(
+      (value ?? "")
+        .split(/[,，\s]+/)
+        .map((username) => username.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export const DEFAULT_SETTINGS = {
   activation_price: 100,
   activation_days: 5,
@@ -10,7 +21,7 @@ export const DEFAULT_SETTINGS = {
   trust_level_min: 1,
   expected_node_count: 30,
   max_credits_per_order: 30,
-  admin_usernames: ["devadmin"],
+  admin_usernames: parseAdminUsernames(process.env.ADMIN_USERNAMES),
   auto_ban_fp_threshold: 3,
   code_stock: 100,
   /** 订阅分流:rules = 按规则分流,global = 全量走代理(出问题时一键回退) */

@@ -101,12 +101,12 @@ export default function SubscriptionSyncCard({
         </div>
 
         <Input
-          label="上游订阅地址（留空保存时使用系统默认地址）"
+          label="上游订阅地址（留空时使用服务器环境变量）"
           value={sourceUrl}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
             setSourceUrl(event.target.value)
           }
-          placeholder="https://example.com/subscription"
+          placeholder="由 UPSTREAM_SUBSCRIPTION_URL 提供"
         />
 
         <div className="grid gap-2 text-xs sm:grid-cols-3">

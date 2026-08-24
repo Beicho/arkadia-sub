@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+.next
+node_modules
+coverage
+docs
+tests
+*.log
+*.tsbuildinfo
+task_plan.md
+findings.md
+progress.md

@@ -14,9 +14,6 @@ import {
 } from "@/lib/socks-parse";
 import { shanghaiToday } from "@/lib/time";
 
-export const DEFAULT_SUBSCRIPTION_SOURCE_URL =
-  "https://subscription.example.com";
-
 export const SUBSCRIPTION_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1_000;
 
 const CONFIG_KEY = "subscription_sync_config";
@@ -116,10 +113,22 @@ function normalizeConfig(value: SubscriptionSyncConfig | null): SubscriptionSync
     sourceUrl:
       typeof value?.sourceUrl === "string" && value.sourceUrl.trim()
         ? value.sourceUrl.trim()
-        : process.env.UPSTREAM_SUBSCRIPTION_URL?.trim() ||
-          DEFAULT_SUBSCRIPTION_SOURCE_URL,
+        : "",
     enabled: value?.enabled !== false,
   };
+}
+
+export function resolveSubscriptionSourceUrl(
+  configSourceUrl: string,
+  environmentSourceUrl = process.env.UPSTREAM_SUBSCRIPTION_URL,
+): string {
+  const sourceUrl =
+    configSourceUrl.trim() || environmentSourceUrl?.trim() || "";
+  if (!sourceUrl) {
+    throw new Error("未配置上游订阅地址，请设置 UPSTREAM_SUBSCRIPTION_URL 或在后台填写");
+  }
+  validateSourceUrlSyntax(sourceUrl);
+  return sourceUrl;
 }
 
 function normalizeStatus(value: SubscriptionSyncStatus | null): SubscriptionSyncStatus {
@@ -147,10 +156,12 @@ export async function saveSubscriptionSyncConfig(input: {
     await readJsonSetting<SubscriptionSyncConfig>(db, CONFIG_KEY),
   );
   const config = {
-    sourceUrl: input.sourceUrl?.trim() || DEFAULT_SUBSCRIPTION_SOURCE_URL,
+    sourceUrl:
+      input.sourceUrl === undefined ? current.sourceUrl : input.sourceUrl.trim(),
     enabled: input.enabled ?? current.enabled,
   };
-  validateSourceUrlSyntax(config.sourceUrl);
+  if (config.sourceUrl) validateSourceUrlSyntax(config.sourceUrl);
+  if (config.enabled) resolveSubscriptionSourceUrl(config.sourceUrl);
   await writeJsonSetting(db, CONFIG_KEY, config);
   return config;
 }
@@ -176,6 +187,7 @@ export async function runSubscriptionSync(
       if (options.trigger === "automatic" && !config.enabled) {
         return { outcome: "disabled" as const };
       }
+      const sourceUrl = resolveSubscriptionSourceUrl(config.sourceUrl);
 
       const previousStatus = normalizeStatus(
         await readJsonSetting<SubscriptionSyncStatus>(tx, STATUS_KEY),
@@ -189,7 +201,7 @@ export async function runSubscriptionSync(
         return { outcome: "not_due" as const };
       }
 
-      const raw = await fetchSubscriptionText(config.sourceUrl);
+      const raw = await fetchSubscriptionText(sourceUrl);
       const upstreamNodes = parseSubscriptionNodes(raw);
       if (upstreamNodes.length === 0) {
         throw new Error("上游内容中没有解析到可用节点");
