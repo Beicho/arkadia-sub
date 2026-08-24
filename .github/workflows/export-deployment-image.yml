@@ -1,0 +1,33 @@
+name: Export deployment image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Export production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: run
+          platforms: linux/amd64
+          tags: ghcr.io/beicho/arkadia-sub:latest
+          outputs: type=docker,dest=${{ runner.temp }}/arkadia-app.tar
+          cache-from: type=gha
+
+      - name: Upload deployment image
+        uses: actions/upload-artifact@v4
+        with:
+          name: arkadia-app-image
+          path: ${{ runner.temp }}/arkadia-app.tar
+          compression-level: 0
+          retention-days: 1
