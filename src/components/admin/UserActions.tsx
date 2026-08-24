@@ -18,10 +18,12 @@ export default function UserActions({
   id,
   banned,
   admin,
+  activated,
 }: {
   id: number;
   banned: boolean;
   admin: boolean;
+  activated: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<Action | null>(null);
@@ -155,11 +157,11 @@ export default function UserActions({
       <Button
         variant="ghost"
         size="xs"
-        loading={loading === "activate"}
+        loading={loading === (activated ? "deactivate" : "activate")}
         disabled={loading !== null}
-        onClick={() => run("activate")}
+        onClick={() => run(activated ? "deactivate" : "activate")}
       >
-        强制激活
+        {activated ? "取消激活" : "强制激活"}
       </Button>
     </div>
   );

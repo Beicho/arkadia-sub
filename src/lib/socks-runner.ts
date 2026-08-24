@@ -8,6 +8,7 @@ import { checkProxy, runPool } from "@/lib/socks-test";
 
 export type SocksRunState = {
   running: boolean;
+  scope: SocksTestScope | null;
   total: number;
   done: number;
   ok: number;
@@ -16,8 +17,15 @@ export type SocksRunState = {
   finishedAt: string | null;
 };
 
+export type SocksTestScope = "untested" | "failed" | "all";
+
+export type SocksRunStartResult =
+  | { started: true; total: number }
+  | { started: false; reason: "running" | "empty" };
+
 const state: SocksRunState = {
   running: false,
+  scope: null,
   total: 0,
   done: 0,
   ok: 0,
@@ -30,21 +38,45 @@ export function getSocksRunState(): SocksRunState {
   return { ...state };
 }
 
-/** 启动一轮测活;运行中返回 false */
-export async function startSocksRun(limit = 20000): Promise<boolean> {
-  if (state.running) return false;
+/** 按范围启动一轮测活;支持未测、失败复测与全部重测。 */
+export async function startSocksRun(
+  scope: SocksTestScope = "untested",
+  limit = 20000,
+): Promise<SocksRunStartResult> {
+  if (state.running) return { started: false, reason: "running" };
 
-  const targets = await db
-    .select({
-      id: socksPool.id,
-      host: socksPool.host,
-      port: socksPool.port,
-      protocol: socksPool.protocol,
-    })
-    .from(socksPool)
-    .limit(limit);
-
+  // 必须在第一次 await 前占位，否则两个并发请求都可能越过 running 检查。
   state.running = true;
+  state.scope = scope;
+
+  let targets: { id: number; host: string; port: number; protocol: string }[];
+  try {
+    const baseQuery = db
+      .select({
+        id: socksPool.id,
+        host: socksPool.host,
+        port: socksPool.port,
+        protocol: socksPool.protocol,
+      })
+      .from(socksPool);
+    targets =
+      scope === "all"
+        ? await baseQuery.limit(limit)
+        : await baseQuery
+            .where(eq(socksPool.status, scope === "failed" ? "fail" : "untested"))
+            .limit(limit);
+  } catch (error) {
+    state.running = false;
+    state.scope = null;
+    throw error;
+  }
+
+  if (targets.length === 0) {
+    state.running = false;
+    state.scope = null;
+    return { started: false, reason: "empty" };
+  }
+
   state.total = targets.length;
   state.done = 0;
   state.ok = 0;
@@ -78,7 +110,7 @@ export async function startSocksRun(limit = 20000): Promise<boolean> {
     } finally {
       state.running = false;
       state.finishedAt = new Date().toISOString();
-      console.log(
+      console.info(
         "[socks-run] finished: total=%d ok=%d fail=%d",
         state.total,
         state.ok,
@@ -87,5 +119,5 @@ export async function startSocksRun(limit = 20000): Promise<boolean> {
     }
   })();
 
-  return true;
+  return { started: true, total: targets.length };
 }

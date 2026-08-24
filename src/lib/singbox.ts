@@ -74,6 +74,9 @@ function httpOut(uri: string, tag: string): Outbound | null {
     ob.username = decodeURIComponent(url.username);
     ob.password = decodeURIComponent(url.password ?? "");
   }
+  if (url.protocol === "https:" || url.searchParams.get("tls") === "1") {
+    ob.tls = { enabled: true };
+  }
   return ob;
 }
 
@@ -98,7 +101,10 @@ function vless(uri: string, tag: string): Outbound | null {
   if (flow) ob.flow = flow;
 
   if (security === "reality" || security === "tls") {
-    const tls: Outbound = { enabled: true };
+    const insecure =
+      url.searchParams.get("insecure") === "1" ||
+      url.searchParams.get("allowInsecure") === "1";
+    const tls: Outbound = { enabled: true, insecure };
     const sni = url.searchParams.get("sni") ?? "";
     if (sni) tls.server_name = sni;
     if (fp) tls.utls = { enabled: true, fingerprint: fp };
@@ -141,7 +147,18 @@ function hysteria2(uri: string, tag: string): Outbound | null {
   const insecure =
     url.searchParams.get("insecure") === "1" ||
     url.searchParams.get("allowInsecure") === "1";
-  ob.tls = { enabled: true, ...(sni ? { server_name: sni } : {}), insecure };
+  const pinnedSha256 =
+    url.searchParams.get("pinSHA256") ??
+    url.searchParams.get("pinned-sha256") ??
+    "";
+  ob.tls = {
+    enabled: true,
+    ...(sni ? { server_name: sni } : {}),
+    insecure,
+    ...(pinnedSha256
+      ? { certificate_public_key_sha256: [pinnedSha256] }
+      : {}),
+  };
   return ob;
 }
 
@@ -164,7 +181,7 @@ function vmess(uri: string, tag: string): Outbound | null {
     server,
     server_port: port,
     uuid,
-    security: String(json.security ?? "auto"),
+    security: String(json.scy ?? json.security ?? "auto"),
     alter_id: Number(json.aid ?? 0) || 0,
   };
   if (String(json.tls ?? "") === "tls") {

@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { nodeBatches } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
+import { activateBatch, deactivateBatch } from "@/lib/batches";
 import { normalizeNodeInput } from "@/lib/nodes";
 import { getSettings } from "@/lib/settings";
 import { shanghaiToday } from "@/lib/time";
@@ -99,14 +100,9 @@ export async function PATCH(req: Request) {
 
   await db.transaction(async (tx) => {
     if (action === "activate") {
-      // 同一时间只激活一批
-      await tx
-        .update(nodeBatches)
-        .set({ isActive: false })
-        .where(eq(nodeBatches.isActive, true));
-      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, id));
+      await activateBatch(tx, id);
     } else {
-      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.id, id));
+      await deactivateBatch(tx, id);
     }
   });
 

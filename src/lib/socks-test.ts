@@ -35,7 +35,7 @@ function checkHttpConnect(
   return new Promise((resolve) => {
     const t0 = Date.now();
     let settled = false;
-    let gotStatus = false;
+    let tunnelReady = false;
     const done = (ok: boolean, error?: string) => {
       if (settled) return;
       settled = true;
@@ -47,7 +47,8 @@ function checkHttpConnect(
     socket.setTimeout(timeoutMs);
     socket.on("timeout", () => done(false, "timeout"));
     socket.on("error", (e: NodeJS.ErrnoException) => done(false, e.code ?? e.message));
-    socket.on("close", () => { if (!settled) done(gotStatus); });
+    // CONNECT 成功不代表目标探测成功；必须实际收到 generate_204 响应。
+    socket.on("close", () => { if (!settled) done(false, tunnelReady ? "probe-closed" : "closed-early"); });
 
     socket.on("connect", () => {
       socket.write(
@@ -59,14 +60,14 @@ function checkHttpConnect(
     let buf = "";
     socket.on("data", (chunk) => {
       buf += chunk.toString("latin1");
-      if (!gotStatus) {
+      if (!tunnelReady) {
         const m = /^HTTP\/1\.[01] (\d{3})/.exec(buf);
         if (!m) {
           if (buf.length > 32) return done(false, "not-http-proxy");
           return;
         }
         if (m[1] !== "200") return done(false, `connect-reject-${m[1]}`);
-        gotStatus = true;
+        tunnelReady = true;
         buf = "";
         socket.write(
           `GET /generate_204 HTTP/1.1\r\nHost: ${PROBE_HOST}\r\nUser-Agent: ark-check/1.0\r\nAccept: */*\r\nConnection: close\r\n\r\n`,

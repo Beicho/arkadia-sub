@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, LayerCard } from "@/components/kumo";
-import { LightningIcon, ArrowsClockwiseIcon, GiftIcon } from "@phosphor-icons/react";
+import { LightningIcon, GiftIcon } from "@phosphor-icons/react";
 import { apiPost } from "@/components/api";
 
 export default function FastBatchFromSocksCard() {
@@ -16,8 +16,8 @@ export default function FastBatchFromSocksCard() {
     if (
       !confirm(
         force
-          ? "确认：将直接创建包含 30 个健康 Socks5 节点的今日新批次并立即激活！"
-          : "从后台 SOCKS5 健康池挑选延迟最低且原生/家宽的 Top 30 节点，一键生成今日批次并激活生效。确定继续？",
+          ? "确认：将直接创建包含最多 60 个健康代理的今日新批次并立即激活！"
+          : "从健康池选择 30 个原生/家宽优选 + 30 个实测高速代理（不足自动回填），生成今日批次并激活。确定继续？",
       )
     ) {
       return;
@@ -30,7 +30,7 @@ export default function FastBatchFromSocksCard() {
     try {
       const r = await apiPost<{ message: string; added: string[] }>("/api/admin/socks", {
         action: "create_batch",
-        count: 30,
+        count: 60,
         force,
       });
       setMsg(r.message);
@@ -56,7 +56,7 @@ export default function FastBatchFromSocksCard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
           <GiftIcon size={18} style={{ color: "var(--ark-accent)" }} />
-          <span>快捷流：从健康 SOCKS5 池一键生成并激活批次</span>
+          <span>快捷流：从健康代理池一键生成并激活批次</span>
         </div>
         <a
           href="/admin/socks"
@@ -67,7 +67,7 @@ export default function FastBatchFromSocksCard() {
         </a>
       </div>
       <p className="text-xs leading-relaxed" style={{ color: "var(--ark-muted)" }}>
-        无需手动复制粘贴。系统将自动选取经过测活巡检、可用且延迟最优的前 30 个 SOCKS5/HTTP 节点，自动格式化命名并打包生成今日批次直接激活。
+        自动选择最多 60 个已测可用代理：前 30 个优先原生/家宽，后 30 个按实测速度从所有 SOCKS5/HTTP 类型中择优；不足时自动回填。
       </p>
 
       {err ? <p className="text-xs" style={{ color: "var(--ark-red)" }}>{err}</p> : null}
@@ -81,7 +81,7 @@ export default function FastBatchFromSocksCard() {
           icon={LightningIcon}
           onClick={() => generateBatch(false)}
         >
-          一键选取 Top 30 生成今日批次并激活
+          一键选取 60 个生成今日批次并激活
         </Button>
       </div>
     </LayerCard>

@@ -9,14 +9,15 @@ LinuxDo OAuth 登录 + LDC 支付的每日节点订阅站。
   国内直连、局域网直连、广告拦截(Clash)、微软/苹果直连、流媒体与电报独立分组、
   自动选择(url-test)兜底。规则全部内联在 `src/lib/rules.ts`,不依赖远程规则集,
   拉不到规则库导致配置加载失败的风险为零。后台"设置"页可一键切回全量代理
-- 站长后台:批次上传(一行一个)、库存管理、订单对账、用户管理、指纹风控、参数设置
+- 站长后台:批次上传、每 4 小时上游订阅全量同步、用户分页检索、库存/订单/风控与参数设置
+- 福利代理池:SOCKS5/HTTP 可重复测速;每批最多加入 60 个(30 个原生/家宽优先 + 30 个实测高速)
 - 一人多号识别:设备指纹同簇 ≥ 阈值自动封禁
 - 不退款条款:购买前强制勾选 + ToS 明示
 
 ## 技术栈
 
 Next.js 15(App Router)+ @cloudflare/kumo UI + Tailwind v4 + Drizzle ORM + PostgreSQL。
-部署:Docker Compose(app + db),构建在服务器上完成。
+部署:Docker Compose(app + db)，GitHub Actions 测试并构建 GHCR 镜像，服务器只拉取镜像。
 
 ## 开发
 
@@ -37,13 +38,13 @@ GitHub Actions(`.github/workflows/ci.yml`):npm ci → drizzle-kit push(postgres 
 npm test        # vitest 单测(签名/金额/节点命名/兑换码)
 ```
 
-## 部署(服务器上构建)
+## 部署(GitHub Actions 构建镜像)
 
 ```bash
-# 服务器上:
+# 服务器上只准备配置并拉取 CI 产物:
 git clone https://github.com/Beicho/arkadia-sub.git && cd arkadia-sub
 cp .env.example .env && vim .env
-docker compose build
+docker compose pull
 docker compose --profile tools run --rm migrate   # 建表/迁移
 docker compose up -d app db
 ```

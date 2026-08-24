@@ -3,6 +3,7 @@ import {
   isEligible,
   parseSocksLine,
   pickBest,
+  pickDailySocks,
   socksNodeName,
 } from "@/lib/socks-parse";
 
@@ -56,10 +57,10 @@ describe("parseSocksLine", () => {
     )!;
     expect(noTime.nativeIp).toBe(true);
     expect(noTime.region).toBe("美国 洛杉矶");
-    // 裸地址(无任何元数据)也能解析,但无标签不入池
+    // 裸地址(无任何元数据)也能解析,可参与按速度选优
     const bare = parseSocksLine("socks5://9.9.9.9:1080")!;
     expect(bare.host).toBe("9.9.9.9");
-    expect(isEligible(bare)).toBe(false);
+    expect(isEligible(bare)).toBe(true);
     // 全角冒号入库
     const fw = parseSocksLine(
       "socks5://2.2.2.2:1080 [家宽] 韩国 [韩国 首尔] 入库:2026-08-18",
@@ -117,11 +118,11 @@ describe("isEligible 过滤", () => {
     expect(isEligible(parseSocksLine(HOME_RU_HIGH)!)).toBe(false);
     expect(isEligible(parseSocksLine(BROADCAST)!)).toBe(false);
   });
-  it("无原生/家宽标签 → 排除", () => {
+  it("无原生/家宽标签但低风险 → 入池参与速度选优", () => {
     const e = parseSocksLine(
       "socks5://1.2.3.4:1080 [广播IP] 荷兰 [荷兰 阿姆斯特丹] 入库:t",
     )!;
-    expect(isEligible(e)).toBe(false);
+    expect(isEligible(e)).toBe(true);
   });
 });
 
@@ -184,5 +185,58 @@ describe("pickBest 选优", () => {
     );
     expect(mixed).toHaveLength(11);
     expect(mixed.some((x) => x.entry.country === "日")).toBe(true);
+  });
+});
+
+describe("pickDailySocks 每日 60 个", () => {
+  const mk = (host: string, ms: number, preferred: boolean) => ({
+    entry: parseSocksLine(
+      `socks5://${host}:1080 ${preferred ? "[原生IP]" : "[广播IP]"} X [X 城] 入库:t`,
+    )!,
+    latencyMs: ms,
+  });
+
+  it("先保留 30 个原生/家宽,再从全部类型按速度补到 60", () => {
+    const preferred = Array.from({ length: 35 }, (_, i) =>
+      mk(`10.${Math.floor(i / 250)}.${i % 250}.1`, 1000 + i, true),
+    );
+    const other = Array.from({ length: 40 }, (_, i) =>
+      mk(`20.${Math.floor(i / 250)}.${i % 250}.1`, i + 1, false),
+    );
+    const selected = pickDailySocks([...other, ...preferred]);
+
+    expect(selected).toHaveLength(60);
+    expect(
+      selected.slice(0, 30).every(({ entry }) => entry.nativeIp || entry.residential),
+    ).toBe(true);
+    expect(new Set(selected.map(({ entry }) => `${entry.host}:${entry.port}`)).size).toBe(60);
+  });
+
+  it("原生/家宽不足时由其他高速类型回填", () => {
+    const preferred = Array.from({ length: 10 }, (_, i) =>
+      mk(`30.0.${i}.1`, 100 + i, true),
+    );
+    const other = Array.from({ length: 55 }, (_, i) =>
+      mk(`40.0.${i}.1`, 200 + i, false),
+    );
+    const selected = pickDailySocks([...preferred, ...other]);
+
+    expect(selected).toHaveLength(60);
+    expect(selected.filter(({ entry }) => entry.nativeIp || entry.residential)).toHaveLength(10);
+  });
+
+  it("候选集中在少量网段时仍按运营目标补满 30 + 30", () => {
+    const preferred = Array.from({ length: 35 }, (_, i) =>
+      mk(`50.0.0.${i + 1}`, 100 + i, true),
+    );
+    const other = Array.from({ length: 35 }, (_, i) =>
+      mk(`60.0.0.${i + 1}`, 200 + i, false),
+    );
+    const selected = pickDailySocks([...preferred, ...other]);
+
+    expect(selected).toHaveLength(60);
+    expect(
+      selected.slice(0, 30).every(({ entry }) => entry.nativeIp || entry.residential),
+    ).toBe(true);
   });
 });

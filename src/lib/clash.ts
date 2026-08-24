@@ -95,7 +95,9 @@ function httpToClash(uri: string, name: string): YamlPairs | null {
     proxy.push(["username", decodeURIComponent(url.username)]);
     proxy.push(["password", decodeURIComponent(url.password ?? "")]);
   }
-  if (truthyParam(url, "tls")) proxy.push(["tls", true]);
+  if (url.protocol === "https:" || truthyParam(url, "tls")) {
+    proxy.push(["tls", true]);
+  }
   return proxy;
 }
 
@@ -173,6 +175,9 @@ function vlessToClash(uri: string, name: string): YamlPairs | null {
 
   if (security === "reality" || security === "tls") {
     proxy.push(["tls", true]);
+    if (truthyParam(url, "insecure", "allowInsecure", "allow-insecure")) {
+      proxy.push(["skip-cert-verify", true]);
+    }
     if (sni) proxy.push(["servername", sni]);
     if (fp) proxy.push(["client-fingerprint", fp]);
     if (flow) proxy.push(["flow", flow]);
@@ -220,6 +225,11 @@ function hysteria2ToClash(uri: string, name: string): YamlPairs | null {
   if (truthyParam(url, "insecure", "allowInsecure", "allow-insecure")) {
     proxy.push(["skip-cert-verify", true]);
   }
+  const pinnedSha256 =
+    url.searchParams.get("pinSHA256") ??
+    url.searchParams.get("pinned-sha256") ??
+    "";
+  if (pinnedSha256) proxy.push(["pinned-sha256", pinnedSha256]);
   const obfs = url.searchParams.get("obfs");
   if (obfs) {
     const obfsPwd = url.searchParams.get("obfs-password") ?? "";
@@ -254,7 +264,7 @@ function vmessToClash(uri: string, name: string): YamlPairs | null {
     ["port", port],
     ["uuid", uuid],
     ["alterId", Number(json.aid ?? 0) || 0],
-    ["cipher", String(json.security ?? "auto") || "auto"],
+    ["cipher", String(json.scy ?? json.security ?? "auto") || "auto"],
     ["udp", true],
   ];
   if (network !== "tcp") proxy.push(["network", network]);

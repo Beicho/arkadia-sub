@@ -6,20 +6,28 @@ import BatchActivateButton from "@/components/admin/BatchActivateButton";
 import BatchForm from "@/components/admin/BatchForm";
 import FastBatchFromSocksCard from "@/components/admin/FastBatchFromSocksCard";
 import StatusChip from "@/components/admin/StatusChip";
+import SubscriptionSyncCard from "@/components/admin/SubscriptionSyncCard";
 import { getSettings } from "@/lib/settings";
+import { getSubscriptionSyncAdminState } from "@/lib/subscription-sync";
 import { formatDate, shanghaiToday } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNodesPage() {
-  const [s, batches] = await Promise.all([
+  const [s, batches, subscriptionSync] = await Promise.all([
     getSettings(),
     db.select().from(nodeBatches).orderBy(desc(nodeBatches.createdAt)).limit(50),
+    getSubscriptionSyncAdminState(),
   ]);
 
   return (
     <div className="space-y-6">
       <h1 className="ark-h2 ark-display text-xl font-bold">节点批次</h1>
+
+      <SubscriptionSyncCard
+        initialConfig={subscriptionSync.config}
+        initialStatus={subscriptionSync.status}
+      />
 
       <FastBatchFromSocksCard />
 

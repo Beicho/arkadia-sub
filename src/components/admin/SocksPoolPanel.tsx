@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, LayerCard } from "@/components/kumo";
 import StatusChip from "@/components/admin/StatusChip";
-import { UploadSimpleIcon, LightningIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  UploadSimpleIcon,
+  LightningIcon,
+  PlusIcon,
+  ArrowsClockwiseIcon,
+} from "@phosphor-icons/react";
 import { apiGet, apiPost } from "@/components/api";
 
 type Top = {
@@ -18,11 +23,27 @@ type Top = {
 };
 
 type Status = {
-  run: { running: boolean; total: number; done: number; ok: number; fail: number };
-  summary: { total: number; ok: number; fail: number; untested: number };
+  run: {
+    running: boolean;
+    scope: TestScope | null;
+    total: number;
+    done: number;
+    ok: number;
+    fail: number;
+  };
+  summary: {
+    total: number;
+    ok: number;
+    fail: number;
+    untested: number;
+    preferred: number;
+    other: number;
+  };
   mergedToday?: number;
   top: Top[];
 };
+
+type TestScope = "untested" | "failed" | "all";
 
 export default function SocksPoolPanel() {
   const [text, setText] = useState("");
@@ -100,13 +121,20 @@ export default function SocksPoolPanel() {
     }
   };
 
-  const doTest = async () => {
-    setBusy("test");
+  const doTest = async (scope: TestScope) => {
+    if (
+      scope === "all" &&
+      !confirm("重新测试代理池里的全部节点?旧的可用状态和延迟会被本轮结果覆盖。")
+    ) {
+      return;
+    }
+    setBusy(`test-${scope}`);
     setErr(null);
     setMsg(null);
     try {
       const r = await apiPost<{ message: string }>("/api/admin/socks", {
         action: "test",
+        scope,
       });
       setMsg(r.message);
       await refresh();
@@ -123,8 +151,8 @@ export default function SocksPoolPanel() {
     if (
       !confirm(
         force
-          ? `⚠ 二次确认:今日批次已有 SOCKS5,将再追加 30 个(重复自动跳过)。真的要追加吗?`
-          : `把可用代理中质量最高的 30 个并入当前激活批次(同日已拉过的用户刷新不扣额度)。确定?`,
+          ? `⚠ 二次确认:今日批次已有福利代理,将再追加最多 60 个(重复自动跳过)。真的要追加吗?`
+          : `把 30 个原生/家宽优选 + 30 个实测高速代理并入当前激活批次(不足时自动回填,最多 60 个)。确定?`,
       )
     )
       return;
@@ -134,7 +162,7 @@ export default function SocksPoolPanel() {
     try {
       const r = await apiPost<{ message: string; added: string[] }>(
         "/api/admin/socks",
-        { action: "merge", count: 30, force },
+        { action: "merge", count: 60, force },
       );
       setMsg(`${r.message}\n并入节点:\n${r.added.join("\n")}`);
       await refresh();
@@ -146,7 +174,7 @@ export default function SocksPoolPanel() {
           setBusy(null);
           return void doMerge(true);
         }
-        setErr("已取消(今日批次已有 SOCKS5,未重复并入)");
+        setErr("已取消(今日批次已有福利代理,未重复并入)");
       } else {
         setErr(msg);
       }
@@ -160,8 +188,8 @@ export default function SocksPoolPanel() {
     if (
       !confirm(
         force
-          ? `⚠ 确认:将创建纯 SOCKS5 批次(30 个)替换当前全部下发内容。`
-          : `创建纯 SOCKS5 批次(30 个可用代理)作为唯一下发批次?适合把 SOCKS5 当主代理用。`,
+          ? `⚠ 确认:将创建纯代理批次(最多 60 个)替换当前全部下发内容。`
+          : `创建纯代理批次(30 个原生/家宽优选 + 30 个实测高速,最多 60 个)作为唯一下发批次?`,
       )
     )
       return;
@@ -171,7 +199,7 @@ export default function SocksPoolPanel() {
     try {
       const r = await apiPost<{ message: string; added: string[] }>(
         "/api/admin/socks",
-        { action: "create_batch", count: 30, force },
+        { action: "create_batch", count: 60, force },
       );
       setMsg(`${r.message}\n节点:\n${r.added.join("\n")}`);
       await refresh();
@@ -196,7 +224,7 @@ export default function SocksPoolPanel() {
     if ((status?.summary.ok ?? 0) === 0) return setErr("没有可用代理");
     if (
       !confirm(
-        `将移除今日批次现有的 ${existing} 个 SOCKS5,从可用代理重新挑 30 个并入。确定?`,
+        `将移除今日批次现有的 ${existing} 个福利代理,重新挑选最多 60 个(30 个原生/家宽优选 + 30 个实测高速)。确定?`,
       )
     )
       return;
@@ -206,7 +234,7 @@ export default function SocksPoolPanel() {
     try {
       const r = await apiPost<{ message: string; added: string[] }>(
         "/api/admin/socks",
-        { action: "replace_merge", count: 30 },
+        { action: "replace_merge", count: 60 },
       );
       setMsg(`${r.message}\n新节点:\n${r.added.join("\n")}`);
       await refresh();
@@ -218,7 +246,7 @@ export default function SocksPoolPanel() {
   };
 
   const doRemove = async () => {
-    if (!confirm("从今日批次移除全部 SOCKS5 福利节点(原付费节点保留)。确定?"))
+    if (!confirm("从今日批次移除全部 SOCKS5/HTTP 福利代理(原付费节点保留)。确定?"))
       return;
     setBusy("remove");
     setErr(null);
@@ -237,7 +265,7 @@ export default function SocksPoolPanel() {
   };
 
   const doClearPool = async () => {
-    if (!confirm("清空整个代理池(所有已导入的 SOCKS5 记录,不影响已并入批次)。确定?"))
+    if (!confirm("清空整个代理池(所有已导入的 SOCKS5/HTTP 记录,不影响已并入批次)。确定?"))
       return;
     if (!confirm("二次确认:真的清空代理池?此操作不可恢复。")) return;
     setBusy("clear");
@@ -264,8 +292,8 @@ export default function SocksPoolPanel() {
       <LayerCard className="space-y-4 p-6">
         <div className="font-semibold">导入代理文件</div>
         <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
-          每行一条 socks5://;自动过滤只保留 原生IP/家宽 且风险分 &lt;10 的;
-          同 host:port 自动去重。支持直接粘贴或上传 txt。
+          每行一条 SOCKS5 或 HTTP 代理;风险分 &lt;10 即可入池,原生/家宽会优先入选,
+          其他类型按实测速度竞争;同 host:port 自动去重。支持直接粘贴或上传 txt。
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -333,6 +361,8 @@ export default function SocksPoolPanel() {
               <StatusChip tone="green">可用 {status.summary.ok}</StatusChip>
               <StatusChip tone="red">失败 {status.summary.fail}</StatusChip>
               <StatusChip tone="amber">未测 {status.summary.untested}</StatusChip>
+              <StatusChip>原生/家宽 {status.summary.preferred}</StatusChip>
+              <StatusChip>其他类型 {status.summary.other}</StatusChip>
               <StatusChip tone="accent">已并入今日 {status.mergedToday ?? 0}</StatusChip>
             </div>
           ) : null}
@@ -353,8 +383,13 @@ export default function SocksPoolPanel() {
               />
             </div>
             <div className="text-xs" style={{ color: "var(--ark-muted)" }}>
-              测活中 {run.done}/{run.total}({pct}%)· 成功 {run.ok} · 失败 {run.fail}
-              · 100 并发
+              {run.scope === "all"
+                ? "全部重测"
+                : run.scope === "failed"
+                  ? "失败复测"
+                  : "新代理测速"}
+              中 {run.done}/{run.total}({pct}%)· 成功 {run.ok} · 失败 {run.fail} · 100
+              并发
             </div>
           </div>
         ) : null}
@@ -363,11 +398,29 @@ export default function SocksPoolPanel() {
           <Button
             variant="secondary"
             icon={LightningIcon}
-            loading={busy === "test"}
+            loading={busy === "test-untested"}
             disabled={run?.running || (status?.summary.untested ?? 0) === 0}
-            onClick={doTest}
+            onClick={() => doTest("untested")}
           >
-            {run?.running ? "测活中…" : "开始测活"}
+            测试未测节点
+          </Button>
+          <Button
+            variant="secondary"
+            icon={ArrowsClockwiseIcon}
+            loading={busy === "test-failed"}
+            disabled={run?.running || (status?.summary.fail ?? 0) === 0}
+            onClick={() => doTest("failed")}
+          >
+            重测失败节点
+          </Button>
+          <Button
+            variant="ghost"
+            icon={ArrowsClockwiseIcon}
+            loading={busy === "test-all"}
+            disabled={run?.running || (status?.summary.total ?? 0) === 0}
+            onClick={() => doTest("all")}
+          >
+            重新测速全部
           </Button>
           <Button
             variant="primary"
@@ -376,7 +429,7 @@ export default function SocksPoolPanel() {
             disabled={run?.running || (status?.summary.ok ?? 0) === 0}
             onClick={() => doMerge()}
           >
-            挑 30 个并入今日批次
+            挑 60 个并入今日批次
           </Button>
           <Button
             variant="secondary"
@@ -384,7 +437,7 @@ export default function SocksPoolPanel() {
             disabled={run?.running || (status?.summary.ok ?? 0) === 0}
             onClick={() => doSocksBatch()}
           >
-            创建纯 SOCKS5 批次
+            创建纯代理批次
           </Button>
           <Button
             variant="secondary"
@@ -392,7 +445,7 @@ export default function SocksPoolPanel() {
             disabled={run?.running || (status?.summary.ok ?? 0) === 0}
             onClick={doReplace}
           >
-            替换今日 SOCKS5
+            替换今日福利代理
           </Button>
           <Button
             variant="ghost"
@@ -400,7 +453,7 @@ export default function SocksPoolPanel() {
             disabled={run?.running || (status?.mergedToday ?? 0) === 0}
             onClick={doRemove}
           >
-            移除今日 SOCKS5
+            移除今日福利代理
           </Button>
           <Button
             variant="ghost"
@@ -412,8 +465,8 @@ export default function SocksPoolPanel() {
           </Button>
         </div>
         <p className="text-xs" style={{ color: "var(--ark-muted)" }}>
-          并入会生成新批次(原节点保留 + SOCKS5 追加),**同日期**内已拉过的用户再刷新
-          不扣更新额度——福利加量免费。
+          每次最多选 60 个:前 30 个优先原生/家宽,后 30 个按实测延迟从全部类型择优;
+          数量不足自动回填。并入会生成同日期新批次,已拉取用户刷新不重复扣额度。
         </p>
       </LayerCard>
 

@@ -3,20 +3,36 @@ import { db } from "@/db/client";
 import { nodeBatches, socksPool } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
+import { activateBatch } from "@/lib/batches";
 import {
   isEligible,
   parseSocksLine,
-  pickBest,
+  pickDailySocks,
   socksNodeName,
   type SocksEntry,
 } from "@/lib/socks-parse";
-import { getSocksRunState, startSocksRun } from "@/lib/socks-runner";
+import {
+  getSocksRunState,
+  startSocksRun,
+  type SocksTestScope,
+} from "@/lib/socks-runner";
 import { shanghaiToday } from "@/lib/time";
 
 /** 下发 URI:按代理协议生成 scheme;名字标注协议 */
 function proxyUri(b: { entry: SocksEntry }): string {
   const scheme = b.entry.protocol === "http" ? "http" : "socks5";
   return `${scheme}://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`;
+}
+
+function isPoolProxyUri(uri: string): boolean {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== "socks5:" && parsed.protocol !== "http:") return false;
+    const label = decodeURIComponent(parsed.hash.slice(1));
+    return /^\[(?:SOCKS5|HTTP)·(?:家宽(?:·原生)?|原生|测速优选)\]/.test(label);
+  } catch {
+    return false;
+  }
 }
 
 export const dynamic = "force-dynamic";
@@ -41,15 +57,22 @@ export async function GET() {
     .where(eq(nodeBatches.isActive, true))
     .limit(1);
   const mergedToday = ((activeBatch?.nodes as string[]) ?? []).filter((n) =>
-    n.toLowerCase().startsWith("socks5://"),
+    isPoolProxyUri(n),
   ).length;
 
-  const allRows = await db.select({ status: socksPool.status }).from(socksPool);
+  const allRows = await db
+    .select({ status: socksPool.status, tags: socksPool.tags })
+    .from(socksPool);
+  const preferred = allRows.filter(
+    (r) => (r.tags ?? []).includes("原生IP") || (r.tags ?? []).includes("家宽"),
+  ).length;
   const summary = {
     total: allRows.length,
     ok: allRows.filter((r) => r.status === "ok").length,
     fail: allRows.filter((r) => r.status === "fail").length,
     untested: allRows.filter((r) => r.status === "untested").length,
+    preferred,
+    other: allRows.length - preferred,
   };
 
   return Response.json({
@@ -90,7 +113,13 @@ export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "无权限" }, { status: 403 });
 
-  let body: { action?: string; text?: string; count?: number; force?: boolean };
+  let body: {
+    action?: string;
+    text?: string;
+    count?: number;
+    force?: boolean;
+    scope?: SocksTestScope;
+  };
   try {
     body = await req.json();
   } catch {
@@ -184,7 +213,7 @@ export async function POST(req: Request) {
       badSamples,
       message:
         `共 ${parsed.length + malformed} 行 → 识别 ${parsed.length} |` +
-        ` 过滤 ${filteredOut}(非原生/家宽或风险≥10)|` +
+        ` 过滤 ${filteredOut}(风险≥10)|` +
         ` 文件内重复 ${parsed.length - filteredOut - entries.length} |` +
         ` 池内已存在 ${inPoolSkipped} | 新入库 ${inserted} |` +
         ` 未识别 ${malformed}`,
@@ -193,17 +222,42 @@ export async function POST(req: Request) {
 
   // ===== 开始测活 =====
   if (action === "test") {
-    const started = await startSocksRun();
-    if (!started) {
-      return Response.json({ error: "已有测活在运行中" }, { status: 409 });
+    const scope = body.scope ?? "untested";
+    if (!(["untested", "failed", "all"] as const).includes(scope)) {
+      return Response.json({ error: "无效的测速范围" }, { status: 400 });
     }
-    await audit(admin.id, "socks_test_start");
-    return Response.json({ ok: true, message: "测活已启动(100 并发)" });
+    const result = await startSocksRun(scope);
+    if (!result.started) {
+      return Response.json(
+        {
+          error:
+            result.reason === "running"
+              ? "已有测活在运行中"
+              : scope === "untested"
+                ? "没有未测代理"
+                : scope === "failed"
+                  ? "没有失败代理可重测"
+                  : "代理池为空",
+        },
+        { status: result.reason === "running" ? 409 : 422 },
+      );
+    }
+    await audit(admin.id, "socks_test_start", scope, { total: result.total });
+    const scopeLabel =
+      scope === "untested"
+        ? "未测代理"
+        : scope === "failed"
+          ? "失败代理"
+          : "全部代理";
+    return Response.json({
+      ok: true,
+      message: `${scopeLabel}测速已启动(${result.total} 个,100 并发)`,
+    });
   }
 
-  // ===== 创建纯 SOCKS5 批次(不依赖已有节点批次,可独立当主代理) =====
+  // ===== 创建纯福利代理批次(不依赖已有节点批次,可独立当主代理) =====
   if (action === "create_batch") {
-    const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const count = Math.min(Math.max(body.count ?? 60, 1), 60);
     const force = body.force === true;
     const okRows = await db
       .select()
@@ -215,7 +269,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "没有可用代理,先执行测活" }, { status: 422 });
     }
 
-    // 防手滑:当日已有非 SOCKS5 激活批次时,确认后才替换(纯 SOCKS5 批次会成为唯一下发批次)
+    // 防手滑:当前批次含常规订阅节点时,确认后才允许用纯福利代理替换。
     if (!force) {
       const [activeBatch] = await db
         .select()
@@ -223,16 +277,16 @@ export async function POST(req: Request) {
         .where(eq(nodeBatches.isActive, true))
         .orderBy(desc(nodeBatches.createdAt))
         .limit(1);
-      const hasNonSocks =
+      const hasNonPoolProxy =
         activeBatch &&
         ((activeBatch.nodes as string[]) ?? []).some(
-          (n) => !n.toLowerCase().startsWith("socks5://"),
+          (n) => !isPoolProxyUri(n),
         );
-      if (hasNonSocks) {
+      if (hasNonPoolProxy) {
         return Response.json(
           {
             error:
-              "当前激活批次包含非 SOCKS5 节点,创建纯 SOCKS5 批次将替换整个下发批次(原节点不再下发,批次日期为今天)。确认继续?",
+              "当前激活批次包含非福利代理节点,创建纯代理批次将替换整个下发批次(原节点不再下发,批次日期为今天)。确认继续?",
             needForce: true,
           },
           { status: 422 },
@@ -240,7 +294,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const best = pickBest(
+    const best = pickDailySocks(
       okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
       count,
     );
@@ -255,7 +309,7 @@ export async function POST(req: Request) {
     const [created] = await db
       .insert(nodeBatches)
       .values({
-        title: `SOCKS5 批次 ${batchDate} ×${best.length}`,
+        title: `福利代理批次 ${batchDate} ×${best.length}`,
         nodes: socksUris,
         batchDate,
         nodeCount: socksUris.length,
@@ -264,8 +318,7 @@ export async function POST(req: Request) {
       })
       .returning({ id: nodeBatches.id });
     await db.transaction(async (tx) => {
-      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
-      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+      await activateBatch(tx, created.id);
     });
     await audit(admin.id, "socks_create_batch", `batch:${created.id}`, {
       count: best.length,
@@ -273,7 +326,7 @@ export async function POST(req: Request) {
     });
     return Response.json({
       ok: true,
-      message: `已创建纯 SOCKS5 批次(${best.length} 个,日期 ${batchDate})并激活`,
+      message: `已创建纯代理批次(${best.length} 个,日期 ${batchDate})并激活`,
       added: best.map((b) => socksNodeName(b.entry)),
     });
   }
@@ -285,7 +338,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, message: "代理池已清空(不影响已并入批次的节点)" });
   }
 
-  // ===== 从今日批次移除全部 SOCKS5(撤福利) =====
+  // ===== 从今日批次移除全部 SOCKS5/HTTP 福利代理 =====
   if (action === "remove_socks") {
     const [current] = await db
       .select()
@@ -297,15 +350,15 @@ export async function POST(req: Request) {
       return Response.json({ error: "没有激活批次" }, { status: 422 });
     }
     const nodes = (current.nodes as string[]) ?? [];
-    const kept = nodes.filter((n) => !n.toLowerCase().startsWith("socks5://"));
+    const kept = nodes.filter((n) => !isPoolProxyUri(n));
     const removed = nodes.length - kept.length;
     if (removed === 0) {
-      return Response.json({ error: "今日批次没有 SOCKS5 节点" }, { status: 422 });
+      return Response.json({ error: "今日批次没有福利代理" }, { status: 422 });
     }
     const [created] = await db
       .insert(nodeBatches)
       .values({
-        title: `${current.title}(移除 SOCKS5 ×${removed})`,
+        title: `${current.title}(移除福利代理 ×${removed})`,
         nodes: kept,
         batchDate: current.batchDate,
         nodeCount: kept.length,
@@ -314,19 +367,18 @@ export async function POST(req: Request) {
       })
       .returning({ id: nodeBatches.id });
     await db.transaction(async (tx) => {
-      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
-      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+      await activateBatch(tx, created.id);
     });
     await audit(admin.id, "socks_remove_from_batch", `batch:${created.id}`, { removed });
     return Response.json({
       ok: true,
-      message: `已移除 ${removed} 个 SOCKS5,批次剩余 ${kept.length} 节点(同日期,用户刷新不扣额度)`,
+      message: `已移除 ${removed} 个福利代理,批次剩余 ${kept.length} 节点(同日期,用户刷新不扣额度)`,
     });
   }
 
-  // ===== 替换今日 SOCKS5:移除旧的,重新挑 30 个 =====
+  // ===== 替换今日福利代理:移除旧的,重新挑 60 个 =====
   if (action === "replace_merge") {
-    const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const count = Math.min(Math.max(body.count ?? 60, 1), 60);
     const okRows = await db
       .select()
       .from(socksPool)
@@ -336,7 +388,7 @@ export async function POST(req: Request) {
     if (okRows.length === 0) {
       return Response.json({ error: "没有可用代理,先执行测活" }, { status: 422 });
     }
-    const best = pickBest(
+    const best = pickDailySocks(
       okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
       count,
     );
@@ -351,7 +403,7 @@ export async function POST(req: Request) {
       .orderBy(desc(nodeBatches.createdAt))
       .limit(1);
     const baseNodes = ((current?.nodes as string[]) ?? []).filter(
-      (n) => !n.toLowerCase().startsWith("socks5://"),
+      (n) => !isPoolProxyUri(n),
     );
     const socksUris = best.map(
       (b) => proxyUri(b),
@@ -362,7 +414,7 @@ export async function POST(req: Request) {
     const [created] = await db
       .insert(nodeBatches)
       .values({
-        title: `批次 ${batchDate}(含 SOCKS5 福利 ×${best.length})`,
+        title: `批次 ${batchDate}(含福利代理 ×${best.length})`,
         nodes: mergedNodes,
         batchDate,
         nodeCount: mergedNodes.length,
@@ -371,8 +423,7 @@ export async function POST(req: Request) {
       })
       .returning({ id: nodeBatches.id });
     await db.transaction(async (tx) => {
-      await tx.update(nodeBatches).set({ isActive: false }).where(eq(nodeBatches.isActive, true));
-      await tx.update(nodeBatches).set({ isActive: true }).where(eq(nodeBatches.id, created.id));
+      await activateBatch(tx, created.id);
     });
     await audit(admin.id, "socks_replace_batch", `batch:${created.id}`, {
       added: best.length,
@@ -381,14 +432,14 @@ export async function POST(req: Request) {
     });
     return Response.json({
       ok: true,
-      message: `已替换:原节点 ${baseNodes.length} + 新 SOCKS5 ${best.length} = ${mergedNodes.length}(同日期不扣额度)`,
+      message: `已替换:原节点 ${baseNodes.length} + 新福利代理 ${best.length} = ${mergedNodes.length}(同日期不扣额度)`,
       added: best.map((b) => socksNodeName(b.entry)),
     });
   }
 
   // ===== 挑选最优并入今日批次 =====
   if (action === "merge") {
-    const count = Math.min(Math.max(body.count ?? 30, 1), 50);
+    const count = Math.min(Math.max(body.count ?? 60, 1), 60);
     const force = body.force === true;
 
     const okRows = await db
@@ -414,7 +465,7 @@ export async function POST(req: Request) {
       .limit(1);
     const existingSet = new Set<string>(
       ((activeBatch?.nodes as string[]) ?? [])
-        .filter((n) => n.toLowerCase().startsWith("socks5://"))
+        .filter((n) => isPoolProxyUri(n))
         .map((n) => {
           try {
             const u = new URL(n);
@@ -427,18 +478,17 @@ export async function POST(req: Request) {
     if (existingSet.size > 0 && !force) {
       return Response.json(
         {
-          error: `今日批次已包含 ${existingSet.size} 个 SOCKS5 福利节点。确认要再追加吗?(重复的会自动跳过)`,
+          error: `今日批次已包含 ${existingSet.size} 个福利代理。确认要再追加吗?(重复的会自动跳过)`,
           needForce: true,
         },
         { status: 422 },
       );
     }
 
-    const best = pickBest(
-      okRows.map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 })),
-      count + existingSet.size, // 多选一些,去重后仍够数
-    ).filter((b) => !existingSet.has(`${b.entry.host}:${b.entry.port}`))
-     .slice(0, count);
+    const candidates = okRows
+      .map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 }))
+      .filter((b) => !existingSet.has(`${b.entry.host}:${b.entry.port}`));
+    const best = pickDailySocks(candidates, count);
     if (best.length === 0) {
       return Response.json(
         { error: "候选已全部在今日批次中,无需重复并入" },
@@ -464,8 +514,8 @@ export async function POST(req: Request) {
 
     const batchDate = current?.batchDate ?? shanghaiToday();
     const title = current
-      ? `${current.title} + SOCKS5 福利 ×${best.length}`
-      : `SOCKS5 福利批次 ${batchDate}`;
+      ? `${current.title} + 福利代理 ×${best.length}`
+      : `福利代理批次 ${batchDate}`;
 
     const [created] = await db
       .insert(nodeBatches)
@@ -481,14 +531,7 @@ export async function POST(req: Request) {
 
     // 事务切换激活;同 batchDate 保证用户同日刷新不重复扣额度
     await db.transaction(async (tx) => {
-      await tx
-        .update(nodeBatches)
-        .set({ isActive: false })
-        .where(eq(nodeBatches.isActive, true));
-      await tx
-        .update(nodeBatches)
-        .set({ isActive: true })
-        .where(eq(nodeBatches.id, created.id));
+      await activateBatch(tx, created.id);
     });
 
     await audit(admin.id, "socks_merge_batch", `batch:${created.id}`, {
@@ -503,7 +546,7 @@ export async function POST(req: Request) {
       batchDate,
       totalNodes: mergedNodes.length,
       added: best.map((b) => socksNodeName(b.entry)),
-      message: `已并入 ${best.length} 个 SOCKS5(批次共 ${mergedNodes.length} 节点,日期 ${batchDate};同日已拉过的用户刷新不扣额度)`,
+      message: `已并入 ${best.length} 个福利代理(批次共 ${mergedNodes.length} 节点,日期 ${batchDate};同日已拉过的用户刷新不扣额度)`,
     });
   }
 

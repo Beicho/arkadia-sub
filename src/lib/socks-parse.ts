@@ -1,5 +1,5 @@
 /**
- * SOCKS5 福利池文本解析。
+ * SOCKS5 / HTTP 福利代理池文本解析。
  * 输入格式(每行一条,来源第三方代理池):
  *   socks5://host:port [原生IP][高风险84] 美国 [美国 得克萨斯州 休斯敦] 入库:2026-08-18 17:34:30
  *   socks5://user:pass@host:port [家宽][原生IP] 俄罗斯 [俄罗斯 莫斯科 莫斯科] 入库:…
@@ -20,9 +20,9 @@ export type SocksEntry = {
 };
 
 /**
- * 宽松行匹配:可缺 socks5:// 前缀、可缺尾部元数据;
+ * 宽松行匹配:可缺协议前缀、可缺尾部元数据;
  * authority = [user:pass@]host:port,后跟可选元数据。
- * http:// / https:// / socks4:// 等其他 scheme 明确不认。
+ * 支持 SOCKS5 与 HTTP(S) 代理;其他 scheme 明确不认。
  */
 // host:port + 可选元数据(空白/|/,分隔);userinfo 单独用 rfind('@') 剥离(密码可含 @)
 const AUTH_RE =
@@ -142,22 +142,23 @@ function findProvider(region: string): string | null {
 }
 
 /**
- * 入池过滤:仅保留 原生IP 或 家宽,且风险分 < 10(无风险标签视为 0)。
- * 广播IP 无原生/家宽标的不入池。
+ * 入池过滤:风险分 < 10(无风险标签视为 0)。
+ * 原生/家宽作为每日优选维度,不再挡住实测速率更好的其他类型。
  */
 export function isEligible(e: SocksEntry): boolean {
-  if (!e.nativeIp && !e.residential) return false;
   if ((e.riskScore ?? 0) >= 10) return false;
   return true;
 }
 
-/** 节点展示名:家宽必须标出 */
+/** 节点展示名:家宽/原生明确标出,其他类型标为测速优选 */
 export function socksNodeName(e: SocksEntry): string {
   const typeTag = e.residential
     ? e.nativeIp
       ? "家宽·原生"
       : "家宽"
-    : "原生";
+    : e.nativeIp
+      ? "原生"
+      : "测速优选";
   const place = buildPlace(e);
   const provider = e.provider ? `·${e.provider}` : "";
   const proto = e.protocol === "http" ? "HTTP" : "SOCKS5";
@@ -191,33 +192,126 @@ export function pickBest(
   ok: { entry: SocksEntry; latencyMs: number }[],
   n: number,
 ): { entry: SocksEntry; latencyMs: number }[] {
-  const sorted = [...ok].sort((a, b) => a.latencyMs - b.latencyMs);
-  const subnetCount = new Map<string, number>();
-  const countryCount = new Map<string, number>();
-  const out: { entry: SocksEntry; latencyMs: number }[] = [];
-  for (const item of sorted) {
-    if (out.length >= n) break;
+  const sorted = dedupeByAddress(ok);
+  const state = createPickState();
+  const out: CheckedSocks[] = [];
+  fillWithDiversity(out, sorted, Math.max(0, n), state);
+  return out;
+}
+
+export type CheckedSocks = { entry: SocksEntry; latencyMs: number };
+
+/**
+ * 每日福利代理选择器:
+ * 1. 最多 30 个原生/家宽,按实测延迟优先;
+ * 2. 再从所有剩余类型按实测延迟补到 60 个;
+ * 3. 原生/家宽不足时由其他高速节点回填,全程按 host:port 去重。
+ *
+ * total/preferredCount 保留参数是为了让后台手动操作和定时订阅同步共用。
+ */
+export function pickDailySocks(
+  ok: CheckedSocks[],
+  total = 60,
+  preferredCount = 30,
+): CheckedSocks[] {
+  const limit = Math.min(Math.max(0, total), 60);
+  if (limit === 0) return [];
+
+  const candidates = dedupeByAddress(ok);
+  const state = createPickState();
+  const out: CheckedSocks[] = [];
+  const preferredLimit = Math.min(Math.max(0, preferredCount), 30, limit);
+  const preferred = candidates.filter(
+    ({ entry }) => entry.nativeIp || entry.residential,
+  );
+
+  fillWithDiversity(out, preferred, preferredLimit, state);
+  // 运营目标优先：有足够原生/家宽时保证前半组凑到 30，最后才放宽网段。
+  fillWithoutDiversity(out, preferred, preferredLimit, state);
+  fillWithDiversity(out, candidates, limit, state);
+  // 全池有足够可用项时应稳定给出 60 个；多样性不足只作为降级而非硬性减量。
+  fillWithoutDiversity(out, candidates, limit, state);
+  return out;
+}
+
+type PickState = {
+  chosen: Set<string>;
+  subnetCount: Map<string, number>;
+  countryCount: Map<string, number>;
+};
+
+function createPickState(): PickState {
+  return {
+    chosen: new Set<string>(),
+    subnetCount: new Map<string, number>(),
+    countryCount: new Map<string, number>(),
+  };
+}
+
+function dedupeByAddress(ok: CheckedSocks[]): CheckedSocks[] {
+  const fastest = new Map<string, CheckedSocks>();
+  for (const item of ok) {
+    const key = proxyKey(item);
+    const previous = fastest.get(key);
+    if (!previous || item.latencyMs < previous.latencyMs) fastest.set(key, item);
+  }
+  return [...fastest.values()].sort((a, b) => a.latencyMs - b.latencyMs);
+}
+
+function fillWithDiversity(
+  out: CheckedSocks[],
+  candidates: CheckedSocks[],
+  target: number,
+  state: PickState,
+): void {
+  addCandidates(out, candidates, target, state, true);
+  // 数量不足时只放宽国家上限;同一 /24 最多 2 条仍是质量红线。
+  if (out.length < target) addCandidates(out, candidates, target, state, false);
+}
+
+function addCandidates(
+  out: CheckedSocks[],
+  candidates: CheckedSocks[],
+  target: number,
+  state: PickState,
+  enforceCountryLimit: boolean,
+): void {
+  for (const item of candidates) {
+    if (out.length >= target) return;
+    const key = proxyKey(item);
+    if (state.chosen.has(key)) continue;
+
     const subnet = item.entry.host.split(".").slice(0, 3).join(".");
-    const cKey = item.entry.country ?? "?";
-    if ((subnetCount.get(subnet) ?? 0) >= 2) continue;
-    if ((countryCount.get(cKey) ?? 0) >= 8) continue;
-    subnetCount.set(subnet, (subnetCount.get(subnet) ?? 0) + 1);
-    countryCount.set(cKey, (countryCount.get(cKey) ?? 0) + 1);
+    const country = item.entry.country ?? "?";
+    if ((state.subnetCount.get(subnet) ?? 0) >= 2) continue;
+    if (enforceCountryLimit && (state.countryCount.get(country) ?? 0) >= 8) continue;
+
+    state.chosen.add(key);
+    state.subnetCount.set(subnet, (state.subnetCount.get(subnet) ?? 0) + 1);
+    state.countryCount.set(country, (state.countryCount.get(country) ?? 0) + 1);
     out.push(item);
   }
-  // 不满额时兜底补齐:放宽国家上限,但子网上限永不放宽(同段扎堆是质量红线)
-  if (out.length < n) {
-    const chosen = new Set(out.map((x) => `${x.entry.host}:${x.entry.port}`));
-    for (const item of sorted) {
-      if (out.length >= n) break;
-      const key = `${item.entry.host}:${item.entry.port}`;
-      if (chosen.has(key)) continue;
-      const subnet = item.entry.host.split(".").slice(0, 3).join(".");
-      if ((subnetCount.get(subnet) ?? 0) >= 2) continue;
-      chosen.add(key);
-      subnetCount.set(subnet, (subnetCount.get(subnet) ?? 0) + 1);
-      out.push(item);
-    }
+}
+
+function fillWithoutDiversity(
+  out: CheckedSocks[],
+  candidates: CheckedSocks[],
+  target: number,
+  state: PickState,
+): void {
+  for (const item of candidates) {
+    if (out.length >= target) return;
+    const key = proxyKey(item);
+    if (state.chosen.has(key)) continue;
+    state.chosen.add(key);
+    const subnet = item.entry.host.split(".").slice(0, 3).join(".");
+    const country = item.entry.country ?? "?";
+    state.subnetCount.set(subnet, (state.subnetCount.get(subnet) ?? 0) + 1);
+    state.countryCount.set(country, (state.countryCount.get(country) ?? 0) + 1);
+    out.push(item);
   }
-  return out;
+}
+
+function proxyKey(item: CheckedSocks): string {
+  return `${item.entry.host}:${item.entry.port}`;
 }
