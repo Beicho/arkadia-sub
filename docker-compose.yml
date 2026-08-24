@@ -38,6 +38,18 @@ services:
       DEV_FAKE_LOGIN: ${DEV_FAKE_LOGIN:-0}
     ports:
       - "127.0.0.1:3090:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     # 生产服务器使用 CI 镜像；源码部署可先运行 docker compose build app migrate
 
   migrate:

@@ -7,7 +7,7 @@ import { CheckCircleIcon, XCircleIcon, ClockIcon } from "@phosphor-icons/react";
 import { apiGet } from "@/components/api";
 
 type OrderStatus = {
-  status: "pending" | "paid" | "expired" | "refunded";
+  status: "pending" | "paid" | "expired" | "refund_pending" | "refunded";
   orderType: string;
   amount: string;
   quantity: number;
@@ -28,7 +28,7 @@ export default function PayClientView({
   targetUrl: string;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<"pending" | "paid" | "expired" | "refunded">("pending");
+  const [status, setStatus] = useState<OrderStatus["status"]>("pending");
   const [redirected, setRedirected] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
@@ -84,17 +84,25 @@ export default function PayClientView({
     );
   }
 
-  if (status === "expired" || status === "refunded") {
+  if (status === "expired" || status === "refund_pending" || status === "refunded") {
     return (
       <LayerCard className="space-y-5 p-8 text-center animate-in zoom-in-95 duration-200">
         <div className="flex justify-center text-rose-500" style={{ color: "var(--ark-red)" }}>
           <XCircleIcon size={56} weight="fill" />
         </div>
         <h1 className="ark-display text-2xl font-bold">
-          {status === "refunded" ? "订单已退款" : "订单已过期失效"}
+          {status === "refund_pending"
+            ? "退款处理中"
+            : status === "refunded"
+              ? "订单已退款"
+              : "订单已过期失效"}
         </h1>
         <p className="text-sm" style={{ color: "var(--ark-muted)" }}>
-          未在规定时间内完成支付，库存已自动回补，请重新下单。
+          {status === "refund_pending"
+            ? "退款申请正在处理，请稍后在订单列表查看结果。"
+            : status === "refunded"
+              ? "款项已退回，已发放的权益同时失效。"
+              : "未在规定时间内完成支付，库存已自动回补，请重新下单。"}
         </p>
         <Button variant="secondary" onClick={() => router.push("/")}>
           返回首页

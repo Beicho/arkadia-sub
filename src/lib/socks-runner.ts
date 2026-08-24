@@ -49,7 +49,14 @@ export async function startSocksRun(
   state.running = true;
   state.scope = scope;
 
-  let targets: { id: number; host: string; port: number; protocol: string }[];
+  let targets: {
+    id: number;
+    host: string;
+    port: number;
+    protocol: string;
+    username: string;
+    password: string;
+  }[];
   try {
     const baseQuery = db
       .select({
@@ -57,6 +64,8 @@ export async function startSocksRun(
         host: socksPool.host,
         port: socksPool.port,
         protocol: socksPool.protocol,
+        username: socksPool.username,
+        password: socksPool.password,
       })
       .from(socksPool);
     targets =
@@ -88,7 +97,12 @@ export async function startSocksRun(
   void (async () => {
     try {
       await runPool(targets, 100, async (t) => {
-        const r = await checkProxy(t.host, t.port, t.protocol === "http" ? "http" : "socks5", 8000);
+        const protocol =
+          t.protocol === "http" || t.protocol === "https" ? t.protocol : "socks5";
+        const auth = t.username
+          ? { username: t.username, password: t.password }
+          : undefined;
+        const r = await checkProxy(t.host, t.port, protocol, 8000, auth);
         if (r.ok) state.ok++;
         else state.fail++;
         state.done++;

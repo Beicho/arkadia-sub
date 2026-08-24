@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     if (existing.status === "banned") {
       return redirect("/denied?reason=banned");
     }
+    const role = isAdmin ? "admin" : "user";
     await db
       .update(users)
       .set({
@@ -62,16 +63,12 @@ export async function GET(req: Request) {
         name: profile.name ?? null,
         avatarUrl: profile.avatar_url ?? null,
         trustLevel: profile.trust_level,
-        role: isAdmin ? "admin" : existing.role,
+        role,
         lastLoginAt: new Date(),
       })
       .where(eq(users.id, existing.id));
-    if (!isAdmin && existing.role === "admin") {
-      // 从管理员名单移除后降级
-      await db.update(users).set({ role: "user" }).where(eq(users.id, existing.id));
-    }
-    await setSessionCookie({ uid: existing.id, role: isAdmin ? "admin" : "user" });
-    return redirect(existing.role === "admin" || isAdmin ? "/admin" : "/dashboard");
+    await setSessionCookie({ uid: existing.id, role });
+    return redirect(role === "admin" ? "/admin" : "/dashboard");
   }
 
   const subToken = crypto.randomUUID();

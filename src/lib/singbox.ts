@@ -68,7 +68,7 @@ function httpOut(uri: string, tag: string): Outbound | null {
     type: "http",
     tag,
     server: url.hostname,
-    server_port: portOrDefault(url, 8080),
+    server_port: portOrDefault(url, url.protocol === "https:" ? 443 : 80),
   };
   if (url.username) {
     ob.username = decodeURIComponent(url.username);

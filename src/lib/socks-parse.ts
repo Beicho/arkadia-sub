@@ -1,5 +1,5 @@
 /**
- * SOCKS5 / HTTP 福利代理池文本解析。
+ * SOCKS5 / HTTP(S) 福利代理池文本解析。
  * 输入格式(每行一条,来源第三方代理池):
  *   socks5://host:port [原生IP][高风险84] 美国 [美国 得克萨斯州 休斯敦] 入库:2026-08-18 17:34:30
  *   socks5://user:pass@host:port [家宽][原生IP] 俄罗斯 [俄罗斯 莫斯科 莫斯科] 入库:…
@@ -8,7 +8,9 @@
 export type SocksEntry = {
   host: string;
   port: number;
-  protocol: "socks5" | "http";
+  protocol: ProxyProtocol;
+  username: string | null;
+  password: string | null;
   line: string;
   tags: string[];
   nativeIp: boolean;
@@ -18,6 +20,8 @@ export type SocksEntry = {
   provider: string | null;
   riskScore: number | null;
 };
+
+export type ProxyProtocol = "socks5" | "http" | "https";
 
 /**
  * 宽松行匹配:可缺协议前缀、可缺尾部元数据;
@@ -58,21 +62,29 @@ const PROVIDER_KEYWORDS = [
 export function parseSocksLine(raw: string): SocksEntry | null {
   let line = raw.trim();
   if (!line) return null;
-  let protocol: "socks5" | "http" = "socks5";
+  let protocol: ProxyProtocol = "socks5";
   const sm = SCHEME_RE.exec(line);
   if (sm) {
-    protocol = /^h/i.test(sm[1]) ? "http" : "socks5";
+    const scheme = sm[1].toLowerCase();
+    protocol = scheme === "http" || scheme === "https" ? scheme : "socks5";
     line = line.slice(sm[0].length);
   } else if (OTHER_SCHEME_RE.test(line)) {
     return null; // socks4:// 等不认识的 scheme
   }
 
-  // userinfo:从右找最后一个 @ 剥离(密码可含 @);裸用户名(无冒号)不认识
+  // userinfo:从右找最后一个 @ 剥离(密码可含 @);裸用户名(无冒号)不认识。
+  // 凭据单独存储，line 仅保留脱敏后的地址和元数据。
   let body = line;
+  let username: string | null = null;
+  let password: string | null = null;
   const at = body.lastIndexOf("@");
   if (at >= 0) {
     const userinfo = body.slice(0, at);
-    if (!userinfo.includes(":")) return null;
+    const separator = userinfo.indexOf(":");
+    if (separator <= 0) return null;
+    username = decodeUserinfo(userinfo.slice(0, separator));
+    password = decodeUserinfo(userinfo.slice(separator + 1));
+    if (username === null || password === null || !username) return null;
     body = body.slice(at + 1);
   }
 
@@ -141,7 +153,9 @@ export function parseSocksLine(raw: string): SocksEntry | null {
     host,
     port,
     protocol,
-    line,
+    username,
+    password,
+    line: body,
     tags,
     nativeIp,
     residential,
@@ -150,6 +164,48 @@ export function parseSocksLine(raw: string): SocksEntry | null {
     provider,
     riskScore,
   };
+}
+
+function decodeUserinfo(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+/** 生成可下发 URI；认证信息逐项编码，避免特殊字符改变 URI 结构。 */
+export function proxyUri(entry: SocksEntry, name = socksNodeName(entry)): string {
+  const host = entry.host.includes(":") ? `[${entry.host}]` : entry.host;
+  const auth = entry.username
+    ? `${encodeURIComponent(entry.username)}:${encodeURIComponent(entry.password ?? "")}@`
+    : "";
+  const fragment = name ? `#${encodeURIComponent(name)}` : "";
+  return `${entry.protocol}://${auth}${host}:${entry.port}${fragment}`;
+}
+
+/** 管理端错误样本脱敏，避免把导入文本中的账号密码原样回传。 */
+export function redactProxyCredentials(value: string): string {
+  const schemeEnd = value.indexOf("://");
+  const authorityStart = schemeEnd >= 0 ? schemeEnd + 3 : 0;
+  const at = value.lastIndexOf("@");
+  if (at < authorityStart || !value.slice(authorityStart, at).includes(":")) {
+    return value;
+  }
+  return `${value.slice(0, authorityStart)}***:***@${value.slice(at + 1)}`;
+}
+
+/** 数据库、文件内及批次去重共用的完整代理身份。 */
+export function proxyIdentity(
+  entry: Pick<SocksEntry, "protocol" | "host" | "port" | "username" | "password">,
+): string {
+  return [
+    entry.protocol,
+    entry.host,
+    entry.port,
+    entry.username ?? "",
+    entry.password ?? "",
+  ].join("\u0000");
 }
 
 function findProvider(region: string): string | null {
@@ -179,7 +235,8 @@ export function socksNodeName(e: SocksEntry): string {
       : "测速优选";
   const place = buildPlace(e);
   const provider = e.provider ? `·${e.provider}` : "";
-  const proto = e.protocol === "http" ? "HTTP" : "SOCKS5";
+  const proto =
+    e.protocol === "https" ? "HTTPS" : e.protocol === "http" ? "HTTP" : "SOCKS5";
   return `[${proto}·${typeTag}] ${place}${provider}`;
 }
 
@@ -223,7 +280,7 @@ export type CheckedSocks = { entry: SocksEntry; latencyMs: number };
  * 每日福利代理选择器:
  * 1. 最多 30 个原生/家宽,按实测延迟优先;
  * 2. 再从所有剩余类型按实测延迟补到 60 个;
- * 3. 原生/家宽不足时由其他高速节点回填,全程按 host:port 去重。
+ * 3. 原生/家宽不足时由其他高速节点回填,全程按完整代理身份去重。
  *
  * total/preferredCount 保留参数是为了让后台手动操作和定时订阅同步共用。
  */
@@ -331,5 +388,5 @@ function fillWithoutDiversity(
 }
 
 function proxyKey(item: CheckedSocks): string {
-  return `${item.entry.host}:${item.entry.port}`;
+  return proxyIdentity(item.entry);
 }

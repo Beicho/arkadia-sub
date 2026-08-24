@@ -37,7 +37,7 @@ export async function createActivationOrder(
     if (pendingByIp >= 2) {
       return {
         ok: false as const,
-        error: "你有未完成的订单(超时约 1 小时自动释放),请先完成支付或稍后再试",
+        error: "你有未完成的订单(默认约 5 分钟自动释放),请先完成支付或稍后再试",
       };
     }
 

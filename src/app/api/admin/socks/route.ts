@@ -8,8 +8,10 @@ import {
   isEligible,
   parseSocksLine,
   pickDailySocks,
+  proxyIdentity,
+  proxyUri,
+  redactProxyCredentials,
   socksNodeName,
-  type SocksEntry,
 } from "@/lib/socks-parse";
 import {
   getSocksRunState,
@@ -18,21 +20,39 @@ import {
 } from "@/lib/socks-runner";
 import { shanghaiToday } from "@/lib/time";
 
-/** 下发 URI:按代理协议生成 scheme;名字标注协议 */
-function proxyUri(b: { entry: SocksEntry }): string {
-  const scheme = b.entry.protocol === "http" ? "http" : "socks5";
-  return `${scheme}://${b.entry.host}:${b.entry.port}#${encodeURIComponent(socksNodeName(b.entry))}`;
-}
-
 function isPoolProxyUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);
-    if (parsed.protocol !== "socks5:" && parsed.protocol !== "http:") return false;
+    if (
+      parsed.protocol !== "socks5:" &&
+      parsed.protocol !== "http:" &&
+      parsed.protocol !== "https:"
+    ) return false;
     const label = decodeURIComponent(parsed.hash.slice(1));
-    return /^\[(?:SOCKS5|HTTP)·(?:家宽(?:·原生)?|原生|测速优选)\]/.test(label);
+    return /^\[(?:SOCKS5|HTTPS?)·(?:家宽(?:·原生)?|原生|测速优选)\]/.test(label);
   } catch {
     return false;
   }
+}
+
+function poolUriIdentity(uri: string): string {
+  const parsed = new URL(uri);
+  const protocol = parsed.protocol.slice(0, -1);
+  const normalizedProtocol =
+    protocol === "http" || protocol === "https" ? protocol : "socks5";
+  const defaultPort =
+    normalizedProtocol === "https"
+      ? 443
+      : normalizedProtocol === "http"
+        ? 80
+        : 1080;
+  return proxyIdentity({
+    protocol: normalizedProtocol,
+    host: parsed.hostname,
+    port: Number(parsed.port || defaultPort),
+    username: decodeURIComponent(parsed.username) || null,
+    password: decodeURIComponent(parsed.password) || null,
+  });
 }
 
 export const dynamic = "force-dynamic";
@@ -82,6 +102,8 @@ export async function GET() {
     top: okRows.map((r) => ({
       host: r.host,
       port: r.port,
+      protocol: r.protocol,
+      authenticated: Boolean(r.username),
       tags: r.tags,
       country: r.country,
       provider: r.provider,
@@ -97,7 +119,12 @@ function rowToEntry(r: SocksRow) {
   return {
     host: r.host,
     port: r.port,
-    protocol: r.protocol === "http" ? ("http" as const) : ("socks5" as const),
+    protocol:
+      r.protocol === "http" || r.protocol === "https"
+        ? r.protocol
+        : ("socks5" as const),
+    username: r.username || null,
+    password: r.password || null,
     line: r.line,
     tags: r.tags ?? [],
     nativeIp: (r.tags ?? []).includes("原生IP"),
@@ -152,7 +179,9 @@ export async function POST(req: Request) {
       if (!e) {
         if (line.trim()) {
           malformed++;
-          if (badSamples.length < 5) badSamples.push(line.trim().slice(0, 80));
+          if (badSamples.length < 5) {
+            badSamples.push(redactProxyCredentials(line.trim()).slice(0, 80));
+          }
         }
         continue;
       }
@@ -161,7 +190,7 @@ export async function POST(req: Request) {
         filteredOut++;
         continue;
       }
-      const key = `${e.host}:${e.port}`;
+      const key = proxyIdentity(e);
       if (seen.has(key)) continue;
       seen.add(key);
       entries.push(e);
@@ -179,6 +208,8 @@ export async function POST(req: Request) {
             host: e.host,
             port: e.port,
             protocol: e.protocol,
+            username: e.username ?? "",
+            password: e.password ?? "",
             line: e.line,
             tags: e.tags,
             country: e.country,
@@ -303,7 +334,7 @@ export async function POST(req: Request) {
     }
 
     const socksUris = best.map(
-      (b) => proxyUri(b),
+      (b) => proxyUri(b.entry),
     );
     const batchDate = shanghaiToday();
     const [created] = await db
@@ -406,7 +437,7 @@ export async function POST(req: Request) {
       (n) => !isPoolProxyUri(n),
     );
     const socksUris = best.map(
-      (b) => proxyUri(b),
+      (b) => proxyUri(b.entry),
     );
     const mergedNodes = [...baseNodes, ...socksUris];
     const batchDate = current?.batchDate ?? shanghaiToday();
@@ -456,7 +487,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 当前激活批次中已有的 SOCKS host:port(防手滑重复并入)
+    // 当前激活批次中已有的完整代理身份(协议、地址和认证均参与去重)
     const [activeBatch] = await db
       .select()
       .from(nodeBatches)
@@ -468,8 +499,7 @@ export async function POST(req: Request) {
         .filter((n) => isPoolProxyUri(n))
         .map((n) => {
           try {
-            const u = new URL(n);
-            return `${u.hostname}:${u.port}`;
+            return poolUriIdentity(n);
           } catch {
             return n;
           }
@@ -487,7 +517,7 @@ export async function POST(req: Request) {
 
     const candidates = okRows
       .map((r) => ({ entry: rowToEntry(r), latencyMs: r.latencyMs ?? 9999 }))
-      .filter((b) => !existingSet.has(`${b.entry.host}:${b.entry.port}`));
+      .filter((b) => !existingSet.has(proxyIdentity(b.entry)));
     const best = pickDailySocks(candidates, count);
     if (best.length === 0) {
       return Response.json(
@@ -505,7 +535,7 @@ export async function POST(req: Request) {
       .limit(1);
 
     const socksUris = best.map(
-      (b) => proxyUri(b),
+      (b) => proxyUri(b.entry),
     );
     const mergedNodes = [
       ...((current?.nodes as string[]) ?? []),

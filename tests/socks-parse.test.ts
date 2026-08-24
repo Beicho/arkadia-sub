@@ -4,6 +4,9 @@ import {
   parseSocksLine,
   pickBest,
   pickDailySocks,
+  proxyIdentity,
+  proxyUri,
+  redactProxyCredentials,
   socksNodeName,
 } from "@/lib/socks-parse";
 
@@ -40,6 +43,9 @@ describe("parseSocksLine", () => {
     const e = parseSocksLine(WITH_AUTH)!;
     expect(e.host).toBe("1.2.3.4");
     expect(e.port).toBe(1080);
+    expect(e.username).toBe("user");
+    expect(e.password).toBe("pass");
+    expect(e.line).not.toContain("user:pass");
     expect(e.residential).toBe(true);
   });
 
@@ -81,6 +87,8 @@ describe("parseSocksLine", () => {
       "socks5://user:pa@ss@3.4.5.6:1080 [家宽] 韩国 [韩国 首尔] 入库:t",
     )!;
     expect(atPwd.host).toBe("3.4.5.6");
+    expect(atPwd.username).toBe("user");
+    expect(atPwd.password).toBe("pa@ss");
     expect(atPwd.residential).toBe(true);
   });
 
@@ -94,6 +102,35 @@ describe("parseSocksLine", () => {
     expect(isEligible(http)).toBe(true);
     expect(socksNodeName(http)).toContain("[HTTP·原生]");
     expect(socksNodeName(http)).toContain("美国");
+  });
+
+  it("HTTPS 代理保留协议，URI 正确编码认证信息", () => {
+    const entry = parseSocksLine(
+      "https://user%20name:p%40ss%3Aword@proxy.example.com:8443 [家宽] 日本 [日本 东京]",
+    )!;
+    expect(entry.protocol).toBe("https");
+    expect(entry.username).toBe("user name");
+    expect(entry.password).toBe("p@ss:word");
+    expect(socksNodeName(entry)).toContain("[HTTPS·家宽]");
+    expect(proxyUri(entry, "HTTPS 节点")).toBe(
+      "https://user%20name:p%40ss%3Aword@proxy.example.com:8443#HTTPS%20%E8%8A%82%E7%82%B9",
+    );
+  });
+
+  it("完整代理身份包含协议和认证信息", () => {
+    const plain = parseSocksLine("http://1.2.3.4:8080")!;
+    const tls = parseSocksLine("https://1.2.3.4:8080")!;
+    const authenticated = parseSocksLine("http://user:pass@1.2.3.4:8080")!;
+    expect(new Set([plain, tls, authenticated].map(proxyIdentity)).size).toBe(3);
+  });
+
+  it("错误样本中的凭据会脱敏", () => {
+    expect(redactProxyCredentials("https://user:pa@ss@host:443 bad")).toBe(
+      "https://***:***@host:443 bad",
+    );
+    expect(redactProxyCredentials("user:secret@host:1080 bad")).toBe(
+      "***:***@host:1080 bad",
+    );
   });
 
   it("非白名单协议不认", () => {

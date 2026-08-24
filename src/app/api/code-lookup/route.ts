@@ -59,8 +59,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "该订单不是注册码订单" }, { status: 422 });
   }
   if (order.status !== "paid") {
+    const statusText =
+      order.status === "pending"
+        ? "待支付"
+        : order.status === "refund_pending"
+          ? "退款处理中"
+          : order.status === "refunded"
+            ? "已退款"
+            : "已过期";
     return Response.json(
-      { error: `订单状态:${order.status === "pending" ? "待支付" : "已过期"}` },
+      { error: `订单状态:${statusText}` },
       { status: 422 },
     );
   }

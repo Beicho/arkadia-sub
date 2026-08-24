@@ -16,6 +16,7 @@ const NODE_PROTOCOLS = new Set([
   "hy2",
   "tuic",
   "socks",
+  "socks5",
   "snell",
   "juicity",
   "wireguard",
@@ -88,11 +89,10 @@ export function filterNodesByKeywords(
     .slice(0, 20);
   if (keywords.length === 0) return nodes;
 
-  const filtered = nodes.filter((node) => {
+  return nodes.filter((node) => {
     const matches = keywords.some((keyword) => node.toLowerCase().includes(keyword));
     return exclude ? !matches : matches;
   });
-  return filtered.length > 0 ? filtered : nodes;
 }
 
 /** 解析节点备注(下发/转换时保留的节点名) */

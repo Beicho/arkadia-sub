@@ -12,12 +12,14 @@ export const dynamic = "force-dynamic";
 const STATUS_TONE: Record<string, "green" | "amber" | "neutral" | "red"> = {
   paid: "green",
   pending: "amber",
+  refund_pending: "amber",
   expired: "neutral",
   refunded: "red",
 };
 const STATUS_TEXT: Record<string, string> = {
   paid: "已支付",
   pending: "待支付",
+  refund_pending: "退款处理中",
   expired: "已过期",
   refunded: "已退款",
 };

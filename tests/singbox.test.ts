@@ -36,6 +36,23 @@ describe("uriToSingboxOutbound", () => {
     expect(ob.password).toBe("p");
   });
 
+  it("http/https 使用标准默认端口并保留认证", () => {
+    const http = uriToSingboxOutbound(
+      "http://proxy.example.com",
+      "HTTP",
+    )!;
+    expect(http.server_port).toBe(80);
+
+    const https = uriToSingboxOutbound(
+      "https://user:p%40ss@proxy.example.com",
+      "HTTPS",
+    )!;
+    expect(https.server_port).toBe(443);
+    expect(https.username).toBe("user");
+    expect(https.password).toBe("p@ss");
+    expect(https.tls).toEqual({ enabled: true });
+  });
+
   it("不认识协议返回 null", () => {
     expect(uriToSingboxOutbound("tuic://x@y:1", "N")).toBeNull();
   });

@@ -12,6 +12,7 @@ const VLESS =
 const HY2 =
   "hysteria2://b07baf8fca580933cc39e6e5a6671a5d@138-2-67-146.liao.kdns.fr:50160?sni=x#HY2-%E6%96%B0%E5%8A%A0%E5%9D%A1";
 const TROJAN = "trojan://pass@1.2.3.4:443?sni=a.com#trojan-node";
+const SOCKS5 = "socks5://user:pass@1.2.3.4:1080#socks-node";
 
 describe("normalizeNodeInput", () => {
   it("一行一个,去空行与重复", () => {
@@ -27,6 +28,12 @@ describe("normalizeNodeInput", () => {
   it("忽略非节点行(https/普通文本)", () => {
     expect(normalizeNodeInput("hello\nhttps://example.com\n")).toEqual([]);
   });
+
+  it("接受 socks5 节点但不接受普通 web URL", () => {
+    expect(normalizeNodeInput(`${SOCKS5}\nhttp://example.com\nhttps://example.com`)).toEqual([
+      SOCKS5,
+    ]);
+  });
 });
 
 describe("filterNodesByKeywords", () => {
@@ -37,10 +44,10 @@ describe("filterNodesByKeywords", () => {
     expect(filterNodesByKeywords(nodes, "trojan")).toEqual([TROJAN]);
   });
 
-  it("支持排除并在结果为空时回退原列表", () => {
+  it("支持排除且空结果保持为空", () => {
     expect(filterNodesByKeywords(nodes, "HY2", true)).toEqual([VLESS, TROJAN]);
-    expect(filterNodesByKeywords(nodes, "不存在")).toEqual(nodes);
-    expect(filterNodesByKeywords(nodes, "vless|hysteria2|trojan", true)).toEqual(nodes);
+    expect(filterNodesByKeywords(nodes, "不存在")).toEqual([]);
+    expect(filterNodesByKeywords(nodes, "vless|hysteria2|trojan", true)).toEqual([]);
   });
 });
 

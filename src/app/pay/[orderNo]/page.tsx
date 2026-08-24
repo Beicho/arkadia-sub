@@ -44,10 +44,17 @@ export default async function PayPage({
 
   if (order.status !== "pending") {
     const refunded = order.status === "refunded";
+    const refundPending = order.status === "refund_pending";
     return (
       <main className="mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="ark-display mb-3 text-xl font-bold">
-          {order.status === "paid" ? "订单已支付" : refunded ? "订单已退款" : "订单已过期"}
+          {order.status === "paid"
+            ? "订单已支付"
+            : refundPending
+              ? "退款处理中"
+              : refunded
+                ? "订单已退款"
+                : "订单已过期"}
         </h1>
         <p className="ark-mono mb-6 text-xs" style={{ color: "var(--ark-muted)" }}>
           {order.outTradeNo}

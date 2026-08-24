@@ -87,6 +87,20 @@ describe("uriToClashProxy", () => {
     expect(p.find(([k]) => k === "port")![1]).toBe(3128);
   });
 
+  it("http/https 代理使用标准默认端口并保留认证", () => {
+    const http = uriToClashProxy("http://proxy.example.com", "HTTP")!;
+    expect(http.find(([k]) => k === "port")![1]).toBe(80);
+
+    const https = uriToClashProxy(
+      "https://user:p%40ss@proxy.example.com",
+      "HTTPS",
+    )!;
+    expect(https.find(([k]) => k === "port")![1]).toBe(443);
+    expect(https.find(([k]) => k === "username")![1]).toBe("user");
+    expect(https.find(([k]) => k === "password")![1]).toBe("p@ss");
+    expect(https.find(([k]) => k === "tls")![1]).toBe(true);
+  });
+
   it("不认识的协议返回 null", () => {
     expect(uriToClashProxy("tuic://x@y:1", "N")).toBeNull();
   });

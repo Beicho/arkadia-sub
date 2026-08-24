@@ -1,7 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders } from "@/db/schema";
-import { epaySign, ldcPid, ldcKey, ldcConfigured, moneyEquals } from "@/lib/ldc";
+import {
+  ldcPid,
+  ldcKey,
+  ldcConfigured,
+  moneyEquals,
+  verifyEpaySign,
+} from "@/lib/ldc";
 import { markOrderPaid } from "@/lib/payment-core";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +35,7 @@ export async function GET(req: Request) {
   if (signType && signType !== "MD5") return reply("sign-type-error");
   if (!sign) return reply("missing-sign");
 
-  const expected = epaySign(params, ldcKey());
-  if (sign.toLowerCase() !== expected) {
+  if (!verifyEpaySign(params, sign, ldcKey())) {
     console.warn("[notify] sign mismatch", params.out_trade_no);
     return reply("sign-error");
   }
@@ -62,7 +67,14 @@ export async function GET(req: Request) {
 
   const result = await markOrderPaid(outTradeNo, params.trade_no ?? null, params);
   if (result === "not_found") return reply("order-not-found");
+  if (result === "delivery_failed") {
+    console.error("[notify] delivery failed", outTradeNo);
+    return reply("delivery-error");
+  }
+  if (result === "invalid_status") {
+    console.warn("[notify] ignored for order status", outTradeNo, order.status);
+  }
 
-  // 重复通知也回 success,让对方停止重试
+  // 重复通知和已退款订单的历史通知也回 success,让对方停止重试。
   return reply("success");
 }

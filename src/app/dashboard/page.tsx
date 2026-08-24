@@ -203,12 +203,20 @@ export default async function DashboardPage({
                   ? "success"
                   : o.status === "pending"
                     ? "warning"
-                    : o.status === "refunded"
-                      ? "error"
-                      : "secondary"
+                    : o.status === "refund_pending"
+                      ? "warning"
+                      : o.status === "refunded"
+                        ? "error"
+                        : "secondary"
               }
             >
-              {{ paid: "已支付", pending: "待支付", expired: "已过期", refunded: "已退款" }[o.status] ?? o.status}
+              {{
+                paid: "已支付",
+                pending: "待支付",
+                refund_pending: "退款处理中",
+                expired: "已过期",
+                refunded: "已退款",
+              }[o.status] ?? o.status}
             </Badge>,
           ])}
         />

@@ -89,7 +89,7 @@ function httpToClash(uri: string, name: string): YamlPairs | null {
     ["name", name],
     ["type", "http"],
     ["server", url.hostname],
-    ["port", portOrDefault(url, 8080)],
+    ["port", portOrDefault(url, url.protocol === "https:" ? 443 : 80)],
   ];
   if (url.username) {
     proxy.push(["username", decodeURIComponent(url.username)]);

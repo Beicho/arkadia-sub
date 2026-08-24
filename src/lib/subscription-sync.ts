@@ -9,7 +9,7 @@ import { activateBatch } from "@/lib/batches";
 import { isNodeLine, normalizeNodeInput, tryDecodeBase64 } from "@/lib/nodes";
 import {
   pickDailySocks,
-  socksNodeName,
+  proxyUri,
   type SocksEntry,
 } from "@/lib/socks-parse";
 import { shanghaiToday } from "@/lib/time";
@@ -168,13 +168,33 @@ export async function saveSubscriptionSyncConfig(input: {
 
 /**
  * 获取、解析并发布一次上游订阅。跨实例用 PostgreSQL advisory xact lock 防重入；
- * 拉取、建批次、切换激活均处于同一事务，任何一步失败都会保留旧激活批次。
+ * 网络拉取在事务外完成，事务内只做二次校验、建批次与切换，避免慢上游占满连接池。
  */
 export async function runSubscriptionSync(
   options: RunSubscriptionSyncOptions,
 ): Promise<SubscriptionSyncResult> {
   const now = options.now ?? new Date();
   try {
+    const initialConfig = normalizeConfig(
+      await readJsonSetting<SubscriptionSyncConfig>(db, CONFIG_KEY),
+    );
+    if (options.trigger === "automatic" && !initialConfig.enabled) {
+      return { outcome: "disabled" };
+    }
+    const sourceUrl = resolveSubscriptionSourceUrl(initialConfig.sourceUrl);
+    const initialStatus = normalizeStatus(
+      await readJsonSetting<SubscriptionSyncStatus>(db, STATUS_KEY),
+    );
+    if (options.trigger === "automatic" && automaticNotDue(initialStatus, now)) {
+      return { outcome: "not_due" };
+    }
+
+    const raw = await fetchSubscriptionText(sourceUrl);
+    const upstreamNodes = parseSubscriptionNodes(raw);
+    if (upstreamNodes.length === 0) {
+      throw new Error("上游内容中没有解析到可用节点");
+    }
+
     return await db.transaction(async (tx) => {
       const lockRows = await tx.execute(
         sql<{ acquired: boolean }>`SELECT pg_try_advisory_xact_lock(${ADVISORY_LOCK_ID}) AS acquired`,
@@ -187,24 +207,15 @@ export async function runSubscriptionSync(
       if (options.trigger === "automatic" && !config.enabled) {
         return { outcome: "disabled" as const };
       }
-      const sourceUrl = resolveSubscriptionSourceUrl(config.sourceUrl);
+      if (resolveSubscriptionSourceUrl(config.sourceUrl) !== sourceUrl) {
+        throw new Error("订阅配置已变化，请重新同步");
+      }
 
       const previousStatus = normalizeStatus(
         await readJsonSetting<SubscriptionSyncStatus>(tx, STATUS_KEY),
       );
-      if (
-        options.trigger === "automatic" &&
-        previousStatus.lastAutoAttemptAt &&
-        now.getTime() - new Date(previousStatus.lastAutoAttemptAt).getTime() <
-          SUBSCRIPTION_SYNC_INTERVAL_MS
-      ) {
+      if (options.trigger === "automatic" && automaticNotDue(previousStatus, now)) {
         return { outcome: "not_due" as const };
-      }
-
-      const raw = await fetchSubscriptionText(sourceUrl);
-      const upstreamNodes = parseSubscriptionNodes(raw);
-      if (upstreamNodes.length === 0) {
-        throw new Error("上游内容中没有解析到可用节点");
       }
 
       const extraNodes = dedupeNodes(
@@ -285,6 +296,15 @@ export async function runSubscriptionSync(
   }
 }
 
+function automaticNotDue(status: SubscriptionSyncStatus, now: Date): boolean {
+  if (!status.lastAutoAttemptAt) return false;
+  const lastAttempt = new Date(status.lastAutoAttemptAt).getTime();
+  return (
+    Number.isFinite(lastAttempt) &&
+    now.getTime() - lastAttempt < SUBSCRIPTION_SYNC_INTERVAL_MS
+  );
+}
+
 /** 从已测可用代理池生成当次 60 个福利 URI：30 个原生/家宽 + 30 个速度优选。 */
 async function selectDailyPoolProxyUris(tx: DbTx): Promise<string[]> {
   const rows = await tx
@@ -301,10 +321,7 @@ async function selectDailyPoolProxyUris(tx: DbTx): Promise<string[]> {
     60,
     30,
   );
-  return selected.map(({ entry }) => {
-    const scheme = entry.protocol === "http" ? "http" : "socks5";
-    return `${scheme}://${formatHost(entry.host)}:${entry.port}#${encodeURIComponent(socksNodeName(entry))}`;
-  });
+  return selected.map(({ entry }) => proxyUri(entry));
 }
 
 function poolRowToEntry(row: typeof socksPool.$inferSelect): SocksEntry {
@@ -312,7 +329,12 @@ function poolRowToEntry(row: typeof socksPool.$inferSelect): SocksEntry {
   return {
     host: row.host,
     port: row.port,
-    protocol: row.protocol === "http" ? "http" : "socks5",
+    protocol:
+      row.protocol === "http" || row.protocol === "https"
+        ? row.protocol
+        : "socks5",
+    username: row.username || null,
+    password: row.password || null,
     line: row.line,
     tags,
     nativeIp: tags.includes("原生IP"),

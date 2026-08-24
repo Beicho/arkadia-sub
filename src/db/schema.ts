@@ -78,7 +78,7 @@ export const orders = pgTable(
     quantity: integer("quantity").notNull(),
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     codeId: integer("code_id"),
-    // pending | paid | expired
+    // pending | paid | expired | refund_pending | refunded
     status: text("status").notNull().default("pending"),
     tradeNo: text("trade_no"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
@@ -173,8 +173,11 @@ export const socksPool = pgTable(
     id: serial("id").primaryKey(),
     host: text("host").notNull(),
     port: integer("port").notNull(),
-    // socks5 | http(代理协议,测活与下发格式共用)
+    // socks5 | http | https(代理协议,测活与下发格式共用)
     protocol: text("protocol").notNull().default("socks5"),
+    // 空字符串表示无认证；使用非空默认值，保证唯一索引能去重无认证代理。
+    username: text("username").notNull().default(""),
+    password: text("password").notNull().default(""),
     line: text("line").notNull(),
     // ["原生IP","家宽",...] 标签
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -191,7 +194,13 @@ export const socksPool = pgTable(
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex("socks_pool_host_port_uq").on(t.host, t.port),
+    uniqueIndex("socks_pool_identity_uq").on(
+      t.protocol,
+      t.host,
+      t.port,
+      t.username,
+      t.password,
+    ),
     index("socks_pool_status_idx").on(t.status),
   ],
 );

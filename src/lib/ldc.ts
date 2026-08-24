@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 /** LDC 易支付兼容接口基址 */
 export const EPAY_BASE =
   process.env.LDC_EPAY_BASE ?? "https://credit.linux.do/epay";
+const LDC_REQUEST_TIMEOUT_MS = 10_000;
 
 export function ldcPid(): string {
   return process.env.LDC_PID ?? "";
@@ -105,7 +106,10 @@ export type LdcOrderStatus = {
 export async function ldcRefund(
   tradeNo: string,
   money: number,
-): Promise<{ ok: boolean; msg: string }> {
+): Promise<
+  | { ok: true; msg: string }
+  | { ok: false; msg: string; uncertain: boolean }
+> {
   const body = new URLSearchParams({
     pid: ldcPid(),
     key: ldcKey(),
@@ -113,22 +117,29 @@ export async function ldcRefund(
     money: money.toFixed(2),
   });
   try {
-    const res = await fetch(`${EPAY_BASE}/api.php`, {
+    const res = await fetchLdc(`${EPAY_BASE}/api.php`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
       cache: "no-store",
     });
+    if (!res.ok) {
+      return { ok: false, msg: `HTTP ${res.status}`, uncertain: true };
+    }
     const data = (await res.json().catch(() => null)) as {
       code?: number;
       msg?: string;
     } | null;
     if (data?.code === 1) return { ok: true, msg: data.msg ?? "退款成功" };
-    return { ok: false, msg: data?.msg ?? `HTTP ${res.status}` };
+    if (!data || typeof data.code !== "number") {
+      return { ok: false, msg: "LDC 返回无效响应", uncertain: true };
+    }
+    return { ok: false, msg: data.msg ?? "退款被拒绝", uncertain: false };
   } catch (err) {
     return {
       ok: false,
       msg: err instanceof Error ? err.message : "网络错误",
+      uncertain: true,
     };
   }
 }
@@ -140,7 +151,10 @@ export async function queryLdcOrder(outTradeNo: string): Promise<LdcOrderStatus>
   url.searchParams.set("pid", ldcPid());
   url.searchParams.set("key", ldcKey());
   url.searchParams.set("out_trade_no", outTradeNo);
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetchLdc(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`LDC order query HTTP ${res.status}`);
+  }
   const body = (await res.json().catch(() => null)) as {
     code?: number;
     msg?: string;
@@ -148,10 +162,13 @@ export async function queryLdcOrder(outTradeNo: string): Promise<LdcOrderStatus>
     money?: string;
     status?: number;
   } | null;
-  if (!body) {
-    return { found: false, paid: false, tradeNo: null, money: null, raw: null };
+  if (!body || typeof body.code !== "number") {
+    throw new Error("LDC order query returned an invalid response");
   }
   if (body.code === 1) {
+    if (body.status !== 0 && body.status !== 1) {
+      throw new Error("LDC order query returned an invalid status");
+    }
     return {
       found: true,
       paid: body.status === 1,
@@ -160,6 +177,18 @@ export async function queryLdcOrder(outTradeNo: string): Promise<LdcOrderStatus>
       raw: body,
     };
   }
-  // code === -1: 服务不存在或已完成
-  return { found: false, paid: false, tradeNo: null, money: null, raw: body };
+  if (body.code === -1) {
+    return { found: false, paid: false, tradeNo: null, money: null, raw: body };
+  }
+  throw new Error(`LDC order query returned unexpected code ${body.code}`);
+}
+
+async function fetchLdc(input: string | URL, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LDC_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }

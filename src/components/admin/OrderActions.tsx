@@ -82,5 +82,19 @@ export default function OrderActions({
     );
   }
 
+  if (status === "expired") {
+    return (
+      <Button
+        variant="secondary"
+        size="xs"
+        loading={loading === "reconcile"}
+        disabled={loading !== null}
+        onClick={reconcile}
+      >
+        重新对账
+      </Button>
+    );
+  }
+
   return <span style={{ color: "var(--ark-muted)" }}>—</span>;
 }

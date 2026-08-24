@@ -84,7 +84,11 @@ export default async function RedeemPage({
               <div>
                 {orderInfo.status === "pending"
                   ? "订单尚未支付——完成支付后回到本页即可看到注册码。"
-                  : "订单超时未支付已失效,库存已回补,请重新购买。"}
+                  : orderInfo.status === "refund_pending"
+                    ? "订单正在退款处理中，注册码已暂停使用。"
+                    : orderInfo.status === "refunded"
+                      ? "订单已退款，注册码已作废。"
+                      : "订单超时未支付已失效,库存已回补,请重新购买。"}
               </div>
             </div>
           )}
