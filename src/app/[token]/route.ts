@@ -5,7 +5,10 @@ import { buildClashYaml } from "@/lib/clash";
 import { buildSingboxConfig } from "@/lib/singbox";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { getSettings } from "@/lib/settings";
-import { requiresUpdateCredit } from "@/lib/subscription-access";
+import {
+  requiresUpdateCredit,
+  shouldFallbackToPreviousBatch,
+} from "@/lib/subscription-access";
 import {
   buildRawContent,
   buildSubscriptionPayload,
@@ -107,6 +110,36 @@ export async function GET(
       lockedMode = true;
     }
     // 锁定批次不存在(理论上不删):回落正常逻辑
+  }
+
+  // 没有更新额度且跨到新日期时,默认继续下发用户上次成功拉取的旧批次。
+  // 这样用户不会突然断订阅;旧批次缺失时仍由额度判定返回 402。
+  if (
+    !lockedMode &&
+    user.lastPulledBatchId &&
+    !freeUntil &&
+    user.updateCredits <= 0 &&
+    user.lastPulledBatchDate !== activeBatch.batchDate
+  ) {
+    const [previousBatch] = await db
+      .select()
+      .from(nodeBatches)
+      .where(eq(nodeBatches.id, user.lastPulledBatchId))
+      .limit(1);
+    if (
+      previousBatch &&
+      previousBatch.nodes.length > 0 &&
+      shouldFallbackToPreviousBatch({
+        lockedMode,
+        freeUntil,
+        updateCredits: user.updateCredits,
+        lastPulledBatchDate: user.lastPulledBatchDate,
+        activeBatchDate: activeBatch.batchDate,
+        previousBatchDate: previousBatch.batchDate,
+      })
+    ) {
+      batch = previousBatch;
+    }
   }
 
   // 额度判定:仅非锁定模式。锁定模式批次已付费,无论额度状态都放行。

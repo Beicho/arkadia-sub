@@ -3,7 +3,10 @@ import {
   parseSubscriptionNodes,
   resolveSubscriptionSourceUrl,
 } from "@/lib/subscription-sync";
-import { requiresUpdateCredit } from "@/lib/subscription-access";
+import {
+  requiresUpdateCredit,
+  shouldFallbackToPreviousBatch,
+} from "@/lib/subscription-access";
 
 describe("subscription access credit gate", () => {
   it("同一天补传批次时余额为 0 也允许刷新", () => {
@@ -43,6 +46,33 @@ describe("subscription access credit gate", () => {
       requiresUpdateCredit({ ...base, freeUntil: new Date("2026-08-26T00:00:00Z") }),
     ).toBe(false);
     expect(requiresUpdateCredit({ ...base, updateCredits: 1 })).toBe(false);
+  });
+
+  it("跨日且没有额度时回退到上次成功拉取的旧批次", () => {
+    expect(
+      shouldFallbackToPreviousBatch({
+        lockedMode: false,
+        freeUntil: null,
+        updateCredits: 0,
+        lastPulledBatchDate: "2026-08-25",
+        activeBatchDate: "2026-08-26",
+        previousBatchDate: "2026-08-25",
+      }),
+    ).toBe(true);
+  });
+
+  it("没有旧批次或旧批次日期不一致时不回退", () => {
+    const base = {
+      lockedMode: false,
+      freeUntil: null,
+      updateCredits: 0,
+      lastPulledBatchDate: "2026-08-25",
+      activeBatchDate: "2026-08-26",
+    };
+    expect(shouldFallbackToPreviousBatch({ ...base, previousBatchDate: null })).toBe(false);
+    expect(
+      shouldFallbackToPreviousBatch({ ...base, previousBatchDate: "2026-08-24" }),
+    ).toBe(false);
   });
 });
 
