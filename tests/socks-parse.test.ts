@@ -276,4 +276,28 @@ describe("pickDailySocks 每日 60 个", () => {
       selected.slice(0, 30).every(({ entry }) => entry.nativeIp || entry.residential),
     ).toBe(true);
   });
+
+  it("同一槽位种子结果稳定，不同槽位在优质候选窗内轮换", () => {
+    const preferred = Array.from({ length: 120 }, (_, i) =>
+      mk(`70.${Math.floor(i / 250)}.${i % 250}.1`, 100 + i, true),
+    );
+    const other = Array.from({ length: 240 }, (_, i) =>
+      mk(`80.${Math.floor(i / 250)}.${i % 250}.1`, 300 + i, false),
+    );
+    const candidates = [...preferred, ...other];
+
+    const first = pickDailySocks(candidates, 60, 30, "2026-08-25:0");
+    const repeated = pickDailySocks(candidates, 60, 30, "2026-08-25:0");
+    const second = pickDailySocks(candidates, 60, 30, "2026-08-25:1");
+    const identities = (items: typeof first) =>
+      items.map(({ entry }) => proxyIdentity(entry));
+
+    expect(identities(repeated)).toEqual(identities(first));
+    expect(identities(second)).not.toEqual(identities(first));
+    expect(first).toHaveLength(60);
+    expect(second).toHaveLength(60);
+    expect(
+      first.slice(0, 30).every(({ entry }) => entry.nativeIp || entry.residential),
+    ).toBe(true);
+  });
 });

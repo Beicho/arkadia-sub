@@ -6,6 +6,7 @@ import { apiPost } from "@/components/api";
 import { Button, Input, LayerCard, Switch } from "@/components/kumo";
 import type {
   SubscriptionSyncConfig,
+  SubscriptionSyncScheduleSummary,
   SubscriptionSyncStatus,
 } from "@/lib/subscription-sync";
 
@@ -14,9 +15,11 @@ type PublicStatus = Omit<SubscriptionSyncStatus, "contentHash">;
 export default function SubscriptionSyncCard({
   initialConfig,
   initialStatus,
+  initialSchedule,
 }: {
   initialConfig: SubscriptionSyncConfig;
   initialStatus: PublicStatus;
+  initialSchedule: SubscriptionSyncScheduleSummary | null;
 }) {
   const router = useRouter();
   const [sourceUrl, setSourceUrl] = useState(initialConfig.sourceUrl);
@@ -87,7 +90,7 @@ export default function SubscriptionSyncCard({
           <div>
             <div className="font-semibold">上游订阅自动同步</div>
             <p className="mt-1 text-xs" style={{ color: "var(--ark-muted)" }}>
-              每 4 小时全量拉取订阅，并自动加入最多 60 个已测福利代理；创建新批次后原子切换激活。
+              每天在 07:00–10:00 与 14:00–23:00 各随机同步一次，并轮换加入最多 60 个已测福利代理。
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
@@ -109,9 +112,13 @@ export default function SubscriptionSyncCard({
           placeholder="由 UPSTREAM_SUBSCRIPTION_URL 提供"
         />
 
-        <div className="grid gap-2 text-xs sm:grid-cols-3">
+        <div className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
           <StatusItem label="最近尝试" value={formatStatusTime(initialStatus.lastAttemptAt)} />
           <StatusItem label="最近成功" value={formatStatusTime(initialStatus.lastSuccessAt)} />
+          <StatusItem
+            label="下次自动同步"
+            value={formatScheduleSummary(initialSchedule)}
+          />
           <StatusItem
             label="最近结果"
             value={
@@ -173,4 +180,16 @@ function formatStatusTime(value: string | null): string {
     minute: "2-digit",
     hour12: false,
   });
+}
+
+function formatScheduleSummary(
+  schedule: SubscriptionSyncScheduleSummary | null,
+): string {
+  if (!schedule) return "计划生成中";
+  const claimed = schedule.slots.filter((slot) => slot.status === "claimed").length;
+  const skipped = schedule.slots.filter((slot) => slot.status === "skipped").length;
+  const suffix = skipped > 0 ? `，跳过 ${skipped}` : "";
+  return schedule.nextRunAt
+    ? `${formatStatusTime(schedule.nextRunAt)}（已执行 ${claimed}/2${suffix}）`
+    : `今日计划已处理（执行 ${claimed}/2${suffix}）`;
 }

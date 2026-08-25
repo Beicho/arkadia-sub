@@ -10,7 +10,7 @@ export function startBackgroundJobs() {
 
   // 订单超时 5 分钟关闭 → 每分钟扫一次,超时后最迟 1 分钟内关闭
   const RECONCILE_INTERVAL_MS = 60_000;
-  // 每分钟只检查是否到期；真正拉取间隔由数据库中的 lastAutoAttemptAt 保证为 4 小时。
+  // 每分钟只检查是否到期；数据库保存每天两个随机槽位并负责跨实例认领。
   const SUBSCRIPTION_CHECK_INTERVAL_MS = 60_000;
 
   const tick = async () => {

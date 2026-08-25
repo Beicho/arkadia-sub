@@ -12,12 +12,19 @@ import {
   proxyUri,
   type SocksEntry,
 } from "@/lib/socks-parse";
-import { shanghaiToday } from "@/lib/time";
-
-export const SUBSCRIPTION_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1_000;
+import {
+  autoSyncSelectionSeed,
+  claimDueAutoSyncSlot,
+  ensureDailyAutoSyncSchedule,
+  isValidSubscriptionSyncSchedule,
+  nextPendingAutoSyncAt,
+  shanghaiDateAt,
+  type SubscriptionSyncSchedule,
+} from "@/lib/subscription-schedule";
 
 const CONFIG_KEY = "subscription_sync_config";
 const STATUS_KEY = "subscription_sync_status";
+const SCHEDULE_KEY = "subscription_sync_schedule";
 const ADVISORY_LOCK_ID = 0x41524b53;
 const FETCH_TIMEOUT_MS = 20_000;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
@@ -38,6 +45,12 @@ export type SubscriptionSyncStatus = {
   totalNodeCount: number;
   error: string | null;
   contentHash?: string;
+};
+
+export type SubscriptionSyncScheduleSummary = {
+  date: string;
+  nextRunAt: string | null;
+  slots: SubscriptionSyncSchedule["slots"];
 };
 
 export type SubscriptionSyncResult =
@@ -138,14 +151,24 @@ function normalizeStatus(value: SubscriptionSyncStatus | null): SubscriptionSync
 export async function getSubscriptionSyncAdminState(): Promise<{
   config: SubscriptionSyncConfig;
   status: Omit<SubscriptionSyncStatus, "contentHash">;
+  schedule: SubscriptionSyncScheduleSummary | null;
 }> {
-  const [storedConfig, storedStatus] = await Promise.all([
+  const [storedConfig, storedStatus, storedSchedule] = await Promise.all([
     readJsonSetting<SubscriptionSyncConfig>(db, CONFIG_KEY),
     readJsonSetting<SubscriptionSyncStatus>(db, STATUS_KEY),
+    readJsonSetting<SubscriptionSyncSchedule>(db, SCHEDULE_KEY),
   ]);
   const { contentHash: _contentHash, ...status } = normalizeStatus(storedStatus);
   void _contentHash;
-  return { config: normalizeConfig(storedConfig), status };
+  const schedule =
+    storedSchedule && isValidSubscriptionSyncSchedule(storedSchedule)
+      ? {
+          date: storedSchedule.date,
+          nextRunAt: nextPendingAutoSyncAt(storedSchedule),
+          slots: storedSchedule.slots,
+        }
+      : null;
+  return { config: normalizeConfig(storedConfig), status, schedule };
 }
 
 export async function saveSubscriptionSyncConfig(input: {
@@ -175,19 +198,20 @@ export async function runSubscriptionSync(
 ): Promise<SubscriptionSyncResult> {
   const now = options.now ?? new Date();
   try {
-    const initialConfig = normalizeConfig(
-      await readJsonSetting<SubscriptionSyncConfig>(db, CONFIG_KEY),
-    );
-    if (options.trigger === "automatic" && !initialConfig.enabled) {
-      return { outcome: "disabled" };
+    let configSourceUrl: string;
+    let selectionSeed: string | undefined;
+    if (options.trigger === "automatic") {
+      const preparation = await prepareAutomaticSync(now);
+      if (preparation.outcome !== "ready") return preparation;
+      configSourceUrl = preparation.configSourceUrl;
+      selectionSeed = preparation.selectionSeed;
+    } else {
+      const initialConfig = normalizeConfig(
+        await readJsonSetting<SubscriptionSyncConfig>(db, CONFIG_KEY),
+      );
+      configSourceUrl = initialConfig.sourceUrl;
     }
-    const sourceUrl = resolveSubscriptionSourceUrl(initialConfig.sourceUrl);
-    const initialStatus = normalizeStatus(
-      await readJsonSetting<SubscriptionSyncStatus>(db, STATUS_KEY),
-    );
-    if (options.trigger === "automatic" && automaticNotDue(initialStatus, now)) {
-      return { outcome: "not_due" };
-    }
+    const sourceUrl = resolveSubscriptionSourceUrl(configSourceUrl);
 
     const raw = await fetchSubscriptionText(sourceUrl);
     const upstreamNodes = parseSubscriptionNodes(raw);
@@ -214,12 +238,9 @@ export async function runSubscriptionSync(
       const previousStatus = normalizeStatus(
         await readJsonSetting<SubscriptionSyncStatus>(tx, STATUS_KEY),
       );
-      if (options.trigger === "automatic" && automaticNotDue(previousStatus, now)) {
-        return { outcome: "not_due" as const };
-      }
 
       const extraNodes = dedupeNodes(
-        options.extraNodes ?? (await selectDailyPoolProxyUris(tx)),
+        options.extraNodes ?? (await selectDailyPoolProxyUris(tx, selectionSeed)),
       );
       const nodes = dedupeNodes([...upstreamNodes, ...extraNodes]);
       const hash = hashNodes(nodes);
@@ -245,8 +266,8 @@ export async function runSubscriptionSync(
         contentHash: hash,
       };
 
-      // 手动重复点击时避免制造完全相同的历史记录；自动任务仍严格按运营要求
-      // 每 4 小时创建并切换一个新批次。同一 batchDate 内用户不会重复扣额度。
+      // 手动重复点击时避免制造完全相同的历史记录；自动任务由每日两个
+      // 持久化随机槽位控制，每个槽位轮换一次福利代理并发布新批次。
       if (options.trigger === "manual" && activeHash === hash) {
         await writeJsonSetting(tx, STATUS_KEY, {
           ...statusBase,
@@ -262,7 +283,7 @@ export async function runSubscriptionSync(
         };
       }
 
-      const batchDate = shanghaiToday();
+      const batchDate = shanghaiDateAt(now);
       const [created] = await tx
         .insert(nodeBatches)
         .values({
@@ -296,17 +317,57 @@ export async function runSubscriptionSync(
   }
 }
 
-function automaticNotDue(status: SubscriptionSyncStatus, now: Date): boolean {
-  if (!status.lastAutoAttemptAt) return false;
-  const lastAttempt = new Date(status.lastAutoAttemptAt).getTime();
-  return (
-    Number.isFinite(lastAttempt) &&
-    now.getTime() - lastAttempt < SUBSCRIPTION_SYNC_INTERVAL_MS
-  );
+type AutomaticPreparation =
+  | {
+      outcome: "ready";
+      configSourceUrl: string;
+      selectionSeed: string;
+    }
+  | { outcome: "busy" | "disabled" | "not_due" };
+
+/**
+ * 在发出网络请求前原子认领当天随机槽位。认领即消耗一次自动机会，失败不重试，
+ * 从而保证多实例和上游故障时都不会产生密集请求。
+ */
+async function prepareAutomaticSync(now: Date): Promise<AutomaticPreparation> {
+  return db.transaction(async (tx): Promise<AutomaticPreparation> => {
+    const lockRows = await tx.execute(
+      sql<{ acquired: boolean }>`SELECT pg_try_advisory_xact_lock(${ADVISORY_LOCK_ID}) AS acquired`,
+    );
+    if (lockRows[0]?.acquired !== true) return { outcome: "busy" };
+
+    const config = normalizeConfig(
+      await readJsonSetting<SubscriptionSyncConfig>(tx, CONFIG_KEY),
+    );
+    if (!config.enabled) return { outcome: "disabled" };
+
+    const storedSchedule = await readJsonSetting<SubscriptionSyncSchedule>(
+      tx,
+      SCHEDULE_KEY,
+    );
+    const dailySchedule = ensureDailyAutoSyncSchedule(storedSchedule, now);
+    const decision = claimDueAutoSyncSlot(dailySchedule, now);
+    if (decision.schedule !== storedSchedule) {
+      await writeJsonSetting(tx, SCHEDULE_KEY, decision.schedule);
+    }
+    if (!decision.claimedSlot) return { outcome: "not_due" };
+
+    return {
+      outcome: "ready",
+      configSourceUrl: config.sourceUrl,
+      selectionSeed: autoSyncSelectionSeed(
+        decision.schedule,
+        decision.claimedSlot,
+      ),
+    };
+  });
 }
 
 /** 从已测可用代理池生成当次 60 个福利 URI：30 个原生/家宽 + 30 个速度优选。 */
-async function selectDailyPoolProxyUris(tx: DbTx): Promise<string[]> {
+async function selectDailyPoolProxyUris(
+  tx: DbTx,
+  selectionSeed?: string,
+): Promise<string[]> {
   const rows = await tx
     .select()
     .from(socksPool)
@@ -320,6 +381,7 @@ async function selectDailyPoolProxyUris(tx: DbTx): Promise<string[]> {
     })),
     60,
     30,
+    selectionSeed,
   );
   return selected.map(({ entry }) => proxyUri(entry));
 }

@@ -27,6 +27,7 @@ export default async function AdminNodesPage() {
       <SubscriptionSyncCard
         initialConfig={subscriptionSync.config}
         initialStatus={subscriptionSync.status}
+        initialSchedule={subscriptionSync.schedule}
       />
 
       <FastBatchFromSocksCard />

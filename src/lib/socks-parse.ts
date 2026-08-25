@@ -5,6 +5,8 @@
  *   socks5://user:pass@host:port [家宽][原生IP] 俄罗斯 [俄罗斯 莫斯科 莫斯科] 入库:…
  */
 
+import { createHash } from "node:crypto";
+
 export type SocksEntry = {
   host: string;
   port: number;
@@ -288,6 +290,7 @@ export function pickDailySocks(
   ok: CheckedSocks[],
   total = 60,
   preferredCount = 30,
+  selectionSeed?: string,
 ): CheckedSocks[] {
   const limit = Math.min(Math.max(0, total), 60);
   if (limit === 0) return [];
@@ -296,17 +299,51 @@ export function pickDailySocks(
   const state = createPickState();
   const out: CheckedSocks[] = [];
   const preferredLimit = Math.min(Math.max(0, preferredCount), 30, limit);
-  const preferred = candidates.filter(
+  const preferredCandidates = candidates.filter(
     ({ entry }) => entry.nativeIp || entry.residential,
   );
+  const preferred = selectionSeed
+    ? seededQualityWindow(
+        preferredCandidates,
+        Math.max(preferredLimit * 4, preferredLimit),
+        `${selectionSeed}:preferred`,
+      )
+    : preferredCandidates;
+  const general = selectionSeed
+    ? seededQualityWindow(
+        candidates,
+        Math.max(limit * 4, limit),
+        `${selectionSeed}:general`,
+      )
+    : candidates;
 
   fillWithDiversity(out, preferred, preferredLimit, state);
   // 运营目标优先：有足够原生/家宽时保证前半组凑到 30，最后才放宽网段。
   fillWithoutDiversity(out, preferred, preferredLimit, state);
-  fillWithDiversity(out, candidates, limit, state);
+  fillWithDiversity(out, general, limit, state);
   // 全池有足够可用项时应稳定给出 60 个；多样性不足只作为降级而非硬性减量。
-  fillWithoutDiversity(out, candidates, limit, state);
+  fillWithoutDiversity(out, general, limit, state);
   return out;
+}
+
+/** 在低延迟候选窗口内按稳定种子洗牌，兼顾轮换与质量下限。 */
+function seededQualityWindow(
+  candidates: CheckedSocks[],
+  windowSize: number,
+  seed: string,
+): CheckedSocks[] {
+  return candidates
+    .slice(0, Math.max(0, windowSize))
+    .map((item) => ({
+      item,
+      rank: createHash("sha256")
+        .update(seed)
+        .update("\0")
+        .update(proxyKey(item))
+        .digest("hex"),
+    }))
+    .sort((a, b) => a.rank.localeCompare(b.rank))
+    .map(({ item }) => item);
 }
 
 type PickState = {
