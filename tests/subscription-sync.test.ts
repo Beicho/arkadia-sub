@@ -3,6 +3,48 @@ import {
   parseSubscriptionNodes,
   resolveSubscriptionSourceUrl,
 } from "@/lib/subscription-sync";
+import { requiresUpdateCredit } from "@/lib/subscription-access";
+
+describe("subscription access credit gate", () => {
+  it("同一天补传批次时余额为 0 也允许刷新", () => {
+    expect(
+      requiresUpdateCredit({
+        lockedMode: false,
+        freeUntil: null,
+        updateCredits: 0,
+        lastPulledBatchDate: "2026-08-25",
+        batchDate: "2026-08-25",
+      }),
+    ).toBe(false);
+  });
+
+  it("跨到新日期且没有额度时返回 402", () => {
+    expect(
+      requiresUpdateCredit({
+        lockedMode: false,
+        freeUntil: null,
+        updateCredits: 0,
+        lastPulledBatchDate: "2026-08-25",
+        batchDate: "2026-08-26",
+      }),
+    ).toBe(true);
+  });
+
+  it("锁定批次、免费期或有额度都不触发 402", () => {
+    const base = {
+      lockedMode: false,
+      freeUntil: null,
+      updateCredits: 0,
+      lastPulledBatchDate: "2026-08-25",
+      batchDate: "2026-08-26",
+    };
+    expect(requiresUpdateCredit({ ...base, lockedMode: true })).toBe(false);
+    expect(
+      requiresUpdateCredit({ ...base, freeUntil: new Date("2026-08-26T00:00:00Z") }),
+    ).toBe(false);
+    expect(requiresUpdateCredit({ ...base, updateCredits: 1 })).toBe(false);
+  });
+});
 
 describe("resolveSubscriptionSourceUrl", () => {
   it("数据库配置优先于环境变量", () => {

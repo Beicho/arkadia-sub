@@ -5,6 +5,7 @@ import { buildClashYaml } from "@/lib/clash";
 import { buildSingboxConfig } from "@/lib/singbox";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { getSettings } from "@/lib/settings";
+import { requiresUpdateCredit } from "@/lib/subscription-access";
 import {
   buildRawContent,
   buildSubscriptionPayload,
@@ -109,7 +110,15 @@ export async function GET(
   }
 
   // 额度判定:仅非锁定模式。锁定模式批次已付费,无论额度状态都放行。
-  if (!lockedMode && !freeUntil && user.updateCredits <= 0) {
+  // 同一 batch_date 的补传/扩容不重复扣额度,即使余额已经为 0 也必须允许刷新;
+  // 只有跨到新日期且没有额度时才返回 402。
+  if (requiresUpdateCredit({
+    lockedMode,
+    freeUntil,
+    updateCredits: user.updateCredits,
+    lastPulledBatchDate: user.lastPulledBatchDate,
+    batchDate: batch.batchDate,
+  })) {
     return textResponse(
       "免费更新期已结束且没有更新额度:请到 arkadia.work 登录后购买更新额度",
       402,
